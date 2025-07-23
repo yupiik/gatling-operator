@@ -1,0 +1,15 @@
+= Configuration
+:minisite-index: 200
+:minisite-index-title: Configuration
+:minisite-index-description: How to configure the operator.
+:minisite-index-icon: tools
+:minisite-nav-prev-label: Getting Started
+:minisite-nav-prev-link: index.html
+:minisite-nav-next-label: Deployment
+:minisite-nav-next-link: deployment.html
+
+[abstract]
+This page lists the configuration on the operator itself.
+
+include::{partialsdir}/generated/documentation.fusion.adoc[]
+include::{partialsdir}/generated/documentation.gatling.adoc[]

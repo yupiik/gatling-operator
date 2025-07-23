@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.yupiik.gatling</groupId>
+    <artifactId>gatling-operator</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>gatling-operator-controller</artifactId>
+  <name>Gatling Operator :: Controller</name>
+  <description>Benchmark (using Gatling as a preference) Kubernetes operator.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-build-api</artifactId>
+      <version>${yupiik-fusion.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-processor</artifactId>
+      <version>${yupiik-fusion.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-kubernetes-operator-base</artifactId>
+      <version>${yupiik-fusion.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.yupiik</groupId>
+      <artifactId>bundlebee-core</artifactId>
+      <version>${yupiik-bundlebee.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.yupiik.fusion</groupId>
+      <artifactId>fusion-testing</artifactId>
+      <version>${yupiik-fusion.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-crd-to-deployment</id>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <outputDirectory>${project.parent.basedir}/deployment/bundlebee/kubernetes/generated</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.build.outputDirectory}/META-INF/fusion/kubernetes/crd/gatling.yupiik.io/v1</directory>
+                  <includes>
+                    <include>*.json</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>io.yupiik</groupId>
+        <artifactId>bundlebee-maven-plugin</artifactId>
+        <version>${yupiik-bundlebee.version}</version>
+        <configuration>
+          <kubeconfig>explicit</kubeconfig>
+          <alveolus>gatling-operator#orchestrator</alveolus>
+          <kubeNamespace>@unexistingNamespace</kubeNamespace>
+          <manifest>${project.basedir}/src/main/resources/bundlebee/manifest.json</manifest>
+          <mavenRepositoriesDownloadsEnabled>true</mavenRepositoriesDownloadsEnabled>
+          <customPlaceholders>
+            <bundlebee-placeholder-import-env>${project.basedir}/src/main/bundlebee/defaults.properties</bundlebee-placeholder-import-env>
+          </customPlaceholders>
+        </configuration>
+        <executions>
+          <execution>
+            <id>generate-placeholder-doc</id>
+            <goals>
+              <goal>placeholder-extract</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <dumpLocation>${project.parent.basedir}/documentation/src/main/minisite/content/_partials/generated/deployment/orchestrator</dumpLocation>
+              <descriptions>${project.basedir}/src/main/bundlebee/descriptions.properties</descriptions>
+            </configuration>
+          </execution>
+          <execution>
+            <id>descriptor-linting</id>
+            <goals>
+              <goal>lint</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <ignoredRules>
+                <!-- we want shared cpu -->
+                <ignoredRule>cpu-limits</ignoredRule>
+                <!-- just our default -->
+                <ignoredRule>no-latest</ignoredRule>
+              </ignoredRules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

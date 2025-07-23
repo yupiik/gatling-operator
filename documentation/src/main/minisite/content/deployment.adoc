@@ -1,0 +1,34 @@
+= Configuration
+:minisite-index: 300
+:minisite-index-title: Deployment
+:minisite-index-description: How to deploy the operator.
+:minisite-index-icon: truck-loading
+:minisite-nav-prev-label: Configuration
+:minisite-nav-prev-link: configuration.html
+:minisite-nav-next-label: Usage
+:minisite-nav-next-link: usage.html
+
+[abstract]
+This page explains how to use Yupiik BundleBee to deploy the operator (but you can generate an all-in-one YAML as well with it or use Helm if you do prefer).
+
+== Configuration
+
+include::{partialsdir}/generated/deployment/placeholders.adoc[]
+
+== Completion
+
+You can get completion using vscode link:https://marketplace.visualstudio.com/items?itemName=rmannibucau.properties-completion[properties] extension and this file:
+
+[source,properties]
+----
+include::{partialsdir}/generated/deployment/placeholders.completion.properties[]
+----
+
+== Sample placeholders
+
+Here is a sample `placeholders.properties` you can use with the `gatling-operator` alveolus:
+
+[source,properties]
+----
+include::{partialsdir}/generated/deployment/placeholders.properties[]
+----

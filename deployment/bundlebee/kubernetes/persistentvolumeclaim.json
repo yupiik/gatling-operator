@@ -1,0 +1,20 @@
+{
+  "kind": "PersistentVolumeClaim",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "gatling-operator",
+    "labels": {
+      "app": "gatling-operator"
+    }
+  },
+  "spec": {
+    "accessModes": [
+      "ReadWriteOnce"
+    ],
+    "resources": {
+      "requests": {
+        "storage": "{{persistence.storage:-1Gi}}"
+      }
+    }
+  }
+}

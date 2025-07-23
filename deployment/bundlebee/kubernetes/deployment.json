@@ -1,0 +1,158 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "gatling-operator",
+    "labels": {
+      "app": "gatling-operator"
+    }
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app": "gatling-operator"
+      }
+    },
+    "replicas": 1,
+    "strategy": {
+      "type": "RollingUpdate",
+      "rollingUpdate": {
+        "maxUnavailable": 1
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "gatling-operator"
+        },
+        "annotations": {
+          "checksum/config": "{{bundlebee-digest:base64,SHA-256,_{{bundlebee-base64-file:{{deployment.environment}}}}_{{bundlebee-base64-file:{{basedir}}/bundlebee/kubernetes/configmap.json}}_{{bundlebee-base64-file:{{basedir}}/bundlebee/kubernetes/secret.json}}_}}"
+        }
+      },
+      "spec": {
+        "dnsConfig": {
+          "options": [
+            {
+              "name": "ndots",
+              "value": "2"
+            }
+          ]
+        },
+        "containers": [
+          {
+            "name": "gatling-operator",
+            "image": "{{image.repository:-yupiik/gatling-operator}}:{{image.tag:-latest}}",
+            "imagePullPolicy": "{{image.pullPolicy:-Always}}",
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": {{security.id:-10000}},
+              "runAsGroup": {{security.id:-10000}},
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "capabilities": {"drop":["ALL"]}
+            },
+            "envFrom": [
+              {
+                "configMapRef": {
+                  "name": "gatling-operator"
+                }
+              }
+            ],
+            "ports": [
+              {
+                "name": "probe",
+                "containerPort": 8081
+              }
+            ],
+            "resources": {
+              "requests": {
+                "memory": "{{container.resources.memory:-128Mi}}",
+                "cpu": "{{container.resources.cpu:-1000m}}"
+              },
+              "limits": {
+                "memory": "{{container.resources.memory:-128Mi}}"
+              }
+            },
+            "readinessProbe": {
+              "initialDelaySeconds": 5,
+              "periodSeconds": 20,
+              "failureThreshold": 10,
+              "timeoutSeconds": 15,
+              "httpGet": {
+                "path": "/health",
+                "scheme": "HTTP",
+                "port": "probe"
+              }
+            },
+            "livenessProbe": {
+              "initialDelaySeconds": 5,
+              "periodSeconds": 30,
+              "failureThreshold": 10,
+              "timeoutSeconds": 20,
+              "httpGet": {
+                "path": "/health",
+                "scheme": "HTTP",
+                "port": "probe"
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/work",
+                "name": "work"
+              },
+              {
+                "mountPath": "/var/run/secrets/tokens",
+                "name": "token",
+                "readOnly": true
+              },
+              {
+                "name": "secrets",
+                "mountPath": "/yupiik/gatling-operator/k8s/secrets",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "work",
+            "persistentVolumeClaim": {
+              "claimName": "gatling-operator"
+            }
+          },
+          {
+            "name": "token",
+            "projected": {
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "path": "gatling-operator",
+                    "expirationSeconds": 86400
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "secrets",
+            "secret": {
+              "secretName": "gatling-operator"
+            }
+          }
+        ],
+        "serviceAccountName": "gatling-operator",
+        "automountServiceAccountToken": true,
+        "securityContext": {
+          "fsGroup": {{security.id:-10000}},
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "imagePullSecrets": {{image.pullSecrets:-[]}},
+        "affinity":{{affinity:-{} }},
+        "nodeSelector": {{nodeSelector:-{} }},
+        "tolerations": {{tolerations:-[]}}
+      }
+    }
+  }
+}

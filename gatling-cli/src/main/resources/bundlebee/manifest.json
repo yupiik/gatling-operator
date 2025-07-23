@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/yupiik/bundlebee/gh-pages/generated/jsonschema/manifest.descriptor.json",
+  "interpolateAlveoli": true,
+  "alveoli": [
+    {
+      "name": "gatling-operator#orchestrator",
+      "descriptors": [
+        {
+          "name": "gatling-operator/orchestrator.json"
+        }
+      ]
+    }
+  ]
+}

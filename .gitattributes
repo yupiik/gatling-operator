@@ -1,0 +1,6 @@
+﻿* text=auto eol=lf
+*.adoc text eol=lf 
+*.java text eol=lf
+*.json text eol=lf 
+*.adoc text eol=lf
+*.xml text eol=lf
