@@ -18,12 +18,12 @@ import io.yupiik.fusion.framework.build.api.kubernetes.crd.CustomResourceDefinit
 import io.yupiik.fusion.framework.build.api.kubernetes.crd.CustomResourceDefinition.PrinterColumn;
 import io.yupiik.fusion.json.JsonMapper;
 import io.yupiik.fusion.kubernetes.client.KubernetesClient;
+import io.yupiik.gatling.controller.bundlebee.BundleBeeService;
 import io.yupiik.gatling.controller.configuration.GatlingOperatorConfiguration;
 import io.yupiik.gatling.controller.model.Env;
 import io.yupiik.gatling.controller.model.GatlingBenchmark;
 import io.yupiik.gatling.controller.model.Jobs;
 import io.yupiik.gatling.controller.model.PodConfiguration;
-import io.yupiik.gatling.controller.service.BundleBeeService;
 import io.yupiik.gatling.controller.version.VersionHolder;
 import io.yupiik.kubernetes.operator.base.spi.Operator;
 import java.net.URI;
@@ -123,7 +123,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 GatlingBenchmark.class,
                 new DefaultOperatorConfiguration(
                         true,
-                        List.of(configuration.namespace()),
+                        List.of(client.namespace().orElse("default")),
                         NAME.toLowerCase(Locale.ROOT) + "s",
                         GROUP + "/" + VERSION));
         this.clock = clock;
@@ -132,7 +132,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         this.deployer = deployer;
         this.scheduledExecutorService = executorService;
         this.configuration = configuration;
-        this.baseJobsUri = "https://kubernetes.api/api/v1/namespaces/" + configuration.namespace() + "/jobs";
+        this.baseJobsUri =
+                "https://kubernetes.api/api/v1/namespaces/" + client.namespace().orElse("default") + "/jobs";
     }
 
     @Override
@@ -309,7 +310,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                         )));
         // todo: +pass other pod configurations as string as well directly?
 
-        return deployer.deployOrchestrator(placeholders);
+        return deployer.deploy("gatling-operator#orchestrator", placeholders);
     }
 
     private Map<String, String> merge(final Map<String, String> a, final Map<String, String> b) {

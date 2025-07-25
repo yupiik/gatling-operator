@@ -33,7 +33,7 @@ class GatlingBenchmarkOperatorTest {
         final var request = kubernetes.requests(1);
         assertEquals(
                 """
-                        POST /api/v1/namespaces/junit/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict
+                        POST /api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict
                         {
                           "apiVersion": "batch/v1",
                           "kind": "Job",
@@ -140,7 +140,7 @@ class GatlingBenchmarkOperatorTest {
                 new Kubernetes.CrdHandler() {
                     @Override
                     protected boolean doGet(final HttpExchange exchange) throws IOException {
-                        if (exchange.getRequestURI().getPath().equals("/api/v1/namespaces/junit/jobs")) {
+                        if (exchange.getRequestURI().getPath().equals("/api/v1/namespaces/default/jobs")) {
                             send(
                                     exchange,
                                     200,
@@ -180,16 +180,16 @@ class GatlingBenchmarkOperatorTest {
         final var request = kubernetes.requests(0);
         assertEquals(
                 """
-                        GET /api/v1/namespaces/junit/jobs?limit=500&labelSelector=gatling.yupiik.io/parent-name=bench-1
+                        GET /api/v1/namespaces/default/jobs?limit=500&labelSelector=gatling.yupiik.io/parent-name=bench-1
 
-                        DELETE /api/v1/namespaces/junit/jobs/j1
+                        DELETE /api/v1/namespaces/default/jobs/j1
                         {
                           "kind": "DeleteOptions",
                           "apiVersion": "v1",
                           "propagationPolicy": "Background",
                           "gracePeriodSeconds": 60
                         }
-                        DELETE /api/v1/namespaces/junit/jobs/j2
+                        DELETE /api/v1/namespaces/default/jobs/j2
                         {
                           "kind": "DeleteOptions",
                           "apiVersion": "v1",

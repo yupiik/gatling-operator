@@ -9,10 +9,6 @@ import io.yupiik.gatling.controller.model.PodConfiguration;
 @RootConfiguration("gatling-operator")
 public record GatlingOperatorConfiguration(
         @Property(
-                        documentation = "The namespace the operator will watch `GatlingBenchmark` in.",
-                        defaultValue = "\"default\"")
-                String namespace,
-        @Property(
                         documentation =
                                 "Customizations of the deployment/runtime. It can be used to force some `Pod` on some `Node` for example.")
                 RuntimeConfiguration runtime) {

@@ -22,7 +22,6 @@ public class JUnitConfigSource implements ConfigurationSource {
             case "operator.use-bookmarks" -> "false";
             case "operator.probe-port" -> "-1";
             case "operator.await" -> "false";
-            case "gatling-operator.namespace" -> "junit";
             default -> null;
         };
     }

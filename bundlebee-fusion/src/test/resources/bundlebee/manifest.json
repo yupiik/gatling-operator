@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/yupiik/bundlebee/gh-pages/generated/jsonschema/manifest.descriptor.json",
+  "alveoli": [
+    {
+      "name": "junit",
+      "descriptors": [
+        {
+          "name": "configmap.json"
+        }
+      ]
+    }
+  ]
+}

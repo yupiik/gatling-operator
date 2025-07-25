@@ -4,7 +4,6 @@ import io.yupiik.bundlebee.core.kube.HttpKubeClient;
 import io.yupiik.bundlebee.core.kube.KubeConfig;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import io.yupiik.fusion.kubernetes.client.KubernetesClient;
-import io.yupiik.gatling.controller.configuration.GatlingOperatorConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,11 +22,9 @@ public class FusionBundleBeeHttpClient implements HttpKubeClient {
     private final KubernetesClient client;
     private final String base;
     private final Duration timeout;
-    private final GatlingOperatorConfiguration configuration;
 
-    public FusionBundleBeeHttpClient(final KubernetesClient client, final GatlingOperatorConfiguration configuration) {
+    public FusionBundleBeeHttpClient(final KubernetesClient client) {
         this.client = client;
-        this.configuration = configuration;
         this.base = client == null ? null : client.base().toASCIIString();
         this.timeout = Duration.ofMinutes(1);
     }
@@ -49,7 +46,7 @@ public class FusionBundleBeeHttpClient implements HttpKubeClient {
 
     @Override
     public String getNamespace() {
-        return configuration.namespace();
+        return client.namespace().orElse("default");
     }
 
     @Override // only for kubeconfig.cluster.* placeholders, not used in the operator

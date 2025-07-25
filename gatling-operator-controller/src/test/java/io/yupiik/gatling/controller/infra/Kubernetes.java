@@ -159,10 +159,10 @@ public class Kubernetes implements AutoCloseable {
                 case "/api/v1", "/apis/batch/v1":
                     send(exchange, 200, "{}");
                     return false;
-                case "/api/v1/namespaces/junit/jobs/orchestrator":
+                case "/api/v1/namespaces/default/jobs/orchestrator":
                     send(exchange, 404, "{}");
                     return false;
-                case "/apis/gatling.yupiik.io/v1/namespaces/junit/gatlingbenchmarks":
+                case "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks":
                     final var query = exchange.getRequestURI().getQuery();
                     if (query == null || !query.contains("watch=true")) {
                         send(
@@ -188,7 +188,7 @@ public class Kubernetes implements AutoCloseable {
 
         protected boolean doPost(final HttpExchange exchange) throws IOException {
             switch (exchange.getRequestURI().getPath()) {
-                case "/api/v1/namespaces/junit/jobs":
+                case "/api/v1/namespaces/default/jobs":
                     send(exchange, 201, "{}");
                     return false;
                 default:

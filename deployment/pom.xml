@@ -62,12 +62,17 @@
             </goals>
             <phase>process-classes</phase>
             <configuration>
+              <failLevel>WARNING</failLevel>
               <kubeconfig>explicit</kubeconfig>
               <ignoredRules>
                 <!-- we want shared cpu -->
                 <ignoredRule>cpu-limits</ignoredRule>
                 <!-- just our default -->
                 <ignoredRule>no-latest</ignoredRule>
+                <!-- single instance is sufficient for the operator -->
+                <ignoredRule>minimum-three-replicas</ignoredRule>
+                <!-- this is the goal actually -->
+                <ignoredRule>access-to-create-pods</ignoredRule>
               </ignoredRules>
             </configuration>
           </execution>
