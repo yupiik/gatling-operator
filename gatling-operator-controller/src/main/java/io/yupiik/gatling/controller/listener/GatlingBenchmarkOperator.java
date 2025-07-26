@@ -266,14 +266,14 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
     // note: this can be enhanced enabling to override and merge some placeholders like env, labels ones
     private Map<String, String> toPlaceholders(final GatlingBenchmark benchmark) {
-        final var placeholders = new HashMap<String, String>(
-                configuration.orchestrator() == null ? Map.of() : configuration.orchestrator());
+        final var placeholders =
+                new HashMap<>(configuration.orchestrator() == null ? Map.of() : configuration.orchestrator());
         placeholders.put(
                 "generic-job.name", computeOrchestratorName(benchmark.metadata().name()));
         placeholders.put("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION.toLowerCase(Locale.ROOT));
         placeholders.put(
                 "generic-job.imagePullPolicy", VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent");
-        placeholders.put(
+        placeholders.put( // todo merge if existing
                 "generic-job.env",
                 json.toString(List.of(Map.of(
                         "name", "K8S_POD_IP", "valueFrom", Map.of("fieldRef", Map.of("fieldPath", "status.podIP"))))));
@@ -282,13 +282,13 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 json.toString(Map.of(
                         CRD_LABEL, benchmark.metadata().name(),
                         START_LABEL, Long.toString(clock.instant().toEpochMilli()))));
-        placeholders.put("generic-job.command", json.toString(List.of( // assume jib
-                "java",
-                "-cp",
-                // FIXME
-                "/opt/yupiik/gatling-operator-controller/custom/*:/opt/yupiik/gatling-operator-controller/*:",
-                Launcher.class.getName()
-        )));
+        placeholders.putIfAbsent( // else use overriden one
+                "generic-job.command",
+                json.toString(List.of( // assume jib
+                        "java",
+                        "-cp",
+                        "@/opt/yupiik/gatling-operator/gatling-operator-controller/jib-classpath-file",
+                        Launcher.class.getName())));
         placeholders.put(
                 "generic-job.args",
                 json.toString(Stream.concat(

@@ -26,6 +26,14 @@
     <yupiik-logging.version>1.0.8</yupiik-logging.version>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <image.base>ossyupiik/java:21.0.7@sha256:82b9c52317c9d0ea1033bd022a1a44650583f99cc909ca48bdb771db60da0604</image.base>
+    <image.workdir>/opt/yupiik/gatling-operator/${project.artifactId}</image.workdir>
+    <image.version>${project.version}</image.version>
+    <image.registry />
+    <!-- when pushing remotely: -Dimage.registry=docker.io/ for ex -->
+    <image.name>${image.registry}yupiik/${project.artifactId}:${image.version}</image.name>
+    <image.url>https://yupiik.io</image.url>
   </properties>
 
   <dependencies>
@@ -212,6 +220,65 @@
             <phase>compile</phase>
           </execution>
         </executions>
+      </plugin>
+      <!--
+      NOTE: can need -DsendCredentialsOverHttp=true for http registries
+
+      docker (local): mvn package jib:dockerBuild
+      remote: mvn package jib:build -Dimage.registry=xxxx/
+      -->
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>3.4.6</version>
+        <configuration>
+          <containerizingMode>packaged</containerizingMode>
+          <from>
+            <image>${image.base}</image>
+          </from>
+          <to>
+            <image>${image.name}</image>
+          </to>
+          <container>
+            <mainClass>io.yupiik.fusion.framework.api.main.Launcher</mainClass>
+            <appRoot>${image.workdir}</appRoot>
+            <workingDirectory>${image.workdir}</workingDirectory>
+            <extraClasspath>${image.workdir}/custom/*:${image.workdir}/custom</extraClasspath>
+            <creationTime>USE_CURRENT_TIMESTAMP</creationTime>
+            <jvmFlags>
+              <jvmFlag>-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager</jvmFlag>
+              <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+              <jvmFlag>-Djdk.serialFilter=oracle.sql.converter.*;!*</jvmFlag>
+              <jvmFlag>-Djdk.jndi.object.factoriesFilter=!*</jvmFlag>
+              <jvmFlag>-Dcom.sun.jndi.ldap.object.trustSerialData=false</jvmFlag>
+              <jvmFlag>-Dorg.apache.webbeans.spi.deployer.skipValidations=true</jvmFlag>
+              <jvmFlag>-Dapp.build.timestamp=${maven.build.timestamp}</jvmFlag>
+            </jvmFlags>
+            <environment>
+              <LANG>en_US.UTF-8</LANG>
+            </environment>
+            <labels>
+              <!--
+              <org.opencontainers.image.revision>${git.commit.id}</org.opencontainers.image.revision>
+              <org.opencontainers.image.ref.name>${git.branch}</org.opencontainers.image.ref.name>
+              <org.opencontainers.image.source>${git.remote.origin.url}</org.opencontainers.image.source>
+              -->
+              <org.opencontainers.image.created>${maven.build.timestamp}</org.opencontainers.image.created>
+              <org.opencontainers.image.authors>Yupiik</org.opencontainers.image.authors>
+              <org.opencontainers.image.vendor>Yupiik</org.opencontainers.image.vendor>
+              <org.opencontainers.image.url>https://yupiik.io/</org.opencontainers.image.url>
+              <org.opencontainers.image.documentation>https://yupiik.io</org.opencontainers.image.documentation>
+              <org.opencontainers.image.title>${project.name}</org.opencontainers.image.title>
+              <org.opencontainers.image.description>${project.description}</org.opencontainers.image.description>
+              <org.opencontainers.image.version>${project.version}</org.opencontainers.image.version>
+              <com.yupiik.maintainer>Yupiik &lt;support@yupiik.com&gt;</com.yupiik.maintainer>
+              <com.yupiik.build-date>${maven.build.timestamp}</com.yupiik.build-date>
+            </labels>
+          </container>
+          <outputPaths>
+            <imageJson>${project.build.directory}/jib-image.json</imageJson>
+          </outputPaths>
+        </configuration>
       </plugin>
     </plugins>
   </build>

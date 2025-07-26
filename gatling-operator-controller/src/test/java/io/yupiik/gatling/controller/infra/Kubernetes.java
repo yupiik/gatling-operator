@@ -220,7 +220,10 @@ public class Kubernetes implements AutoCloseable {
 
         public void assertJsonPayloadEquals(final String raw) {
             try (final var mapper = new JsonMapperImpl(List.of(), k -> empty())) {
-                assertEquals(mapper.fromString(Object.class, raw), mapper.fromString(Object.class, payload));
+                if (!mapper.fromString(Object.class, raw).equals(mapper.fromString(Object.class, payload))) {
+                    // better error message until we write one more accurate
+                    assertEquals(raw, payload);
+                }
             }
         }
     }

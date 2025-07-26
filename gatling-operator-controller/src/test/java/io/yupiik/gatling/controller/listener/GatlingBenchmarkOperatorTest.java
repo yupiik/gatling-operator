@@ -92,7 +92,12 @@ class GatlingBenchmarkOperatorTest {
                                         "name": "K8S_POD_IP"
                                       }
                                     ],
-                                    "command": [],
+                                    "command": [
+                                      "java",
+                                      "-cp",
+                                      "@/opt/yupiik/gatling-operator/gatling-operator-controller/jib-classpath-file",
+                                      "io.yupiik.fusion.framework.api.main.Launcher"
+                                    ],
                                     "resources": {
                                       "requests": {
                                         "cpu": "100m",
