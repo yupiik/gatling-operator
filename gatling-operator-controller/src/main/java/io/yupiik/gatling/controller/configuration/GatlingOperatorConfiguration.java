@@ -3,27 +3,13 @@ package io.yupiik.gatling.controller.configuration;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
-import io.yupiik.gatling.controller.model.PodConfiguration;
+import java.util.Map;
 
 @ApplicationScoped
 @RootConfiguration("gatling-operator")
 public record GatlingOperatorConfiguration(
         @Property(
                         documentation =
-                                "Customizations of the deployment/runtime. It can be used to force some `Pod` on some `Node` for example.")
-                RuntimeConfiguration runtime) {
-
-    public record RuntimeConfiguration(
-            @Property(
-                            documentation =
-                                    "Orchestrator `Pod` customizations. Note that it can be overridden by the CRD itself.")
-                    PodConfiguration orchestrator,
-            @Property(
-                            documentation =
-                                    "Injector (gatling) `Pod` customizations. Note that it can be overridden by the CRD itself.")
-                    PodConfiguration injectors,
-            @Property(
-                            documentation =
-                                    "Reporter `Pod` customizations. Note that it can be overridden by the CRD itself.")
-                    PodConfiguration reporters) {}
-}
+                                "Orchestrator global placeholders for the `gatling-operator#generic-job` alveolus used to deploy the orchestrator. "
+                                        + "It can enable to force some affinity for example.")
+                Map<String, String> orchestrator) {}

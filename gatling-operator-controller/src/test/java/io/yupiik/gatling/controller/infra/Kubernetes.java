@@ -1,6 +1,8 @@
 package io.yupiik.gatling.controller.infra;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Optional.empty;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -12,7 +14,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -26,7 +27,7 @@ public class Kubernetes implements AutoCloseable {
 
     private HttpHandler handler;
 
-    private final Collection<Request> captured = new CopyOnWriteArrayList<>();
+    private final List<Request> captured = new CopyOnWriteArrayList<>();
     private final Semaphore capturedCount = new Semaphore(0);
 
     public Kubernetes() {
@@ -46,7 +47,7 @@ public class Kubernetes implements AutoCloseable {
         }
     }
 
-    public Collection<Request> requests(final int awaitedCount) {
+    public List<Request> requests(final int awaitedCount) {
         if (awaitedCount > 0) {
             try {
                 capturedCount.acquire(awaitedCount);
@@ -211,6 +212,16 @@ public class Kubernetes implements AutoCloseable {
     public record Request(String method, URI uri, String payload) {
         public String asString() {
             return method + " " + uri.getPath() + (uri.getQuery() != null ? "?" + uri.getQuery() : "") + '\n' + payload;
+        }
+
+        public String requestLine() {
+            return method + " " + uri.toASCIIString();
+        }
+
+        public void assertJsonPayloadEquals(final String raw) {
+            try (final var mapper = new JsonMapperImpl(List.of(), k -> empty())) {
+                assertEquals(mapper.fromString(Object.class, raw), mapper.fromString(Object.class, payload));
+            }
         }
     }
 }

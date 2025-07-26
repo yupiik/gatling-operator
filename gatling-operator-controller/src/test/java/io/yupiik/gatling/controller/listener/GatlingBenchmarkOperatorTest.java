@@ -30,17 +30,20 @@ class GatlingBenchmarkOperatorTest {
                     }
                   }
                 }""");
-        final var request = kubernetes.requests(1);
+        final var request = kubernetes.requests(1).getFirst();
         assertEquals(
+                "POST /api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict",
+                request.requestLine());
+        request.assertJsonPayloadEquals(
                 """
-                        POST /api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict
                         {
                           "apiVersion": "batch/v1",
                           "kind": "Job",
                           "metadata": {
                             "name": "bench-1-19700101000000",
                             "labels": {
-                              "gatling.yupiik.io/parent-name": "bench-1"
+                              "gatling.yupiik.io/parent-name": "bench-1",
+                              "gatling.yupiik.io/started-timestamp": "0"
                             },
                             "annotations": {}
                           },
@@ -50,7 +53,8 @@ class GatlingBenchmarkOperatorTest {
                             "template": {
                               "metadata": {
                                 "labels": {
-                                  "gatling.yupiik.io/parent-name": "bench-1"
+                                  "gatling.yupiik.io/parent-name": "bench-1",
+                                  "gatling.yupiik.io/started-timestamp": "0"
                                 },
                                 "annotations": {}
                               },
@@ -58,8 +62,16 @@ class GatlingBenchmarkOperatorTest {
                                 "activeDeadlineSeconds": 6000,
                                 "containers": [
                                   {
-                                    "args": [],
-                                    "image": "yupiik/gatling-cli:latest",
+                                    "args": [
+                                      "bench",
+                                      "--spec-auto-clean",
+                                      "false",
+                                      "--spec-pipeline-length",
+                                      "0",
+                                      "--benchmark-name",
+                                      "bench-1"
+                                    ],
+                                    "image": "yupiik/gatling-cli:1.0-snapshot",
                                     "imagePullPolicy": "Always",
                                     "workingDir": "/tmp",
                                     "name": "orchestrator",
@@ -72,14 +84,15 @@ class GatlingBenchmarkOperatorTest {
                                     },
                                     "env": [
                                       {
-                                        "name": "K8S_POD_IP",
                                         "valueFrom": {
                                           "fieldRef": {
                                             "fieldPath": "status.podIP"
                                           }
-                                        }
+                                        },
+                                        "name": "K8S_POD_IP"
                                       }
                                     ],
+                                    "command": [],
                                     "resources": {
                                       "requests": {
                                         "cpu": "100m",
@@ -130,8 +143,7 @@ class GatlingBenchmarkOperatorTest {
                                 "\"imagePullPolicy\": \"Always\",",
                                 "\"imagePullPolicy\": \""
                                         + (VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent")
-                                        + "\","),
-                request.iterator().next().asString());
+                                        + "\","));
     }
 
     @Test

@@ -16,6 +16,7 @@
     <module>gatling-cli</module>
     <module>bundlebee-fusion</module>
     <module>bundlebee-alveolus-generic-job</module>
+    <module>kubernetes-model</module>
   </modules>
 
   <properties>

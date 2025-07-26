@@ -1,5 +1,6 @@
 package io.yupiik.gatling.controller.listener;
 
+import static io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus.BenchmarkStatus.FAILED;
 import static java.net.http.HttpResponse.BodyHandlers.ofString;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -13,6 +14,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.logging.Level.SEVERE;
 import static java.util.stream.Collectors.toMap;
 
+import io.yupiik.fusion.framework.api.main.Launcher;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import io.yupiik.fusion.framework.build.api.kubernetes.crd.CustomResourceDefinition;
 import io.yupiik.fusion.framework.build.api.kubernetes.crd.CustomResourceDefinition.PrinterColumn;
@@ -20,11 +22,11 @@ import io.yupiik.fusion.json.JsonMapper;
 import io.yupiik.fusion.kubernetes.client.KubernetesClient;
 import io.yupiik.gatling.controller.bundlebee.BundleBeeService;
 import io.yupiik.gatling.controller.configuration.GatlingOperatorConfiguration;
-import io.yupiik.gatling.controller.model.Env;
 import io.yupiik.gatling.controller.model.GatlingBenchmark;
 import io.yupiik.gatling.controller.model.Jobs;
-import io.yupiik.gatling.controller.model.PodConfiguration;
 import io.yupiik.gatling.controller.version.VersionHolder;
+import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec;
+import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus;
 import io.yupiik.kubernetes.operator.base.spi.Operator;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -33,7 +35,6 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -44,19 +45,20 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 @CustomResourceDefinition(
         /* defaults
         namespaced = true,
+        version = GatlingBenchmarkOperator.VERSION,
          */
         group = GatlingBenchmarkOperator.GROUP,
-        version = GatlingBenchmarkOperator.VERSION,
         name = GatlingBenchmarkOperator.NAME,
         shortNames = {"gb"},
-        spec = GatlingBenchmark.Spec.class,
-        status = GatlingBenchmark.Status.class,
+        spec = GatlingBenchmarkSpec.class,
+        status = GatlingBenchmarkStatus.class,
         additionalPrinterColumns = {
             @PrinterColumn(name = "Image", type = "string", jsonPath = ".spec.gatling.image"),
             @PrinterColumn(name = "Status", type = "string", jsonPath = ".status.status")
@@ -76,6 +78,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     static final String NAME = "GatlingBenchmark";
 
     private static final String CRD_LABEL = GROUP + "/parent-name";
+    private static final String START_LABEL = GROUP + "/started-timestamp";
 
     private final Logger logger = Logger.getLogger(getClass().getName());
     private final DateTimeFormatter dateTimeFormatter = new DateTimeFormatterBuilder()
@@ -92,6 +95,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     private final KubernetesClient kubernetes;
     private final JsonMapper json;
     private final String baseJobsUri;
+    private final String baseUri;
     private final BundleBeeService deployer;
     private final Clock clock;
     private final GatlingOperatorConfiguration configuration;
@@ -107,6 +111,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         this.kubernetes = null;
         this.json = null;
         this.baseJobsUri = null;
+        this.baseUri = null;
         this.deployer = null;
         this.clock = null;
         this.configuration = null;
@@ -132,8 +137,11 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         this.deployer = deployer;
         this.scheduledExecutorService = executorService;
         this.configuration = configuration;
-        this.baseJobsUri =
-                "https://kubernetes.api/api/v1/namespaces/" + client.namespace().orElse("default") + "/jobs";
+
+        final var namespace = client.namespace().orElse("default");
+        this.baseJobsUri = "https://kubernetes.api/api/v1/namespaces/" + namespace + "/jobs";
+        this.baseUri =
+                "https://kubernetes.api/apis/" + GROUP + '/' + VERSION + "/namespaces/" + namespace + "/" + NAME + 's';
     }
 
     @Override
@@ -179,8 +187,21 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 try {
                     final var trigger = trigger(resource);
                     // do not remove there if it is a deletion
-                    trigger.whenComplete(
-                            (ok, ko) -> pending.remove(resource.metadata().name(), trigger));
+                    trigger.whenComplete((ok, ko) -> {
+                        if (ko != null) {
+                            pending.put(
+                                    resource.metadata().name(),
+                                    setStatus(
+                                            resource.metadata().name(),
+                                            new GatlingBenchmarkStatus(
+                                                    FAILED,
+                                                    new GatlingBenchmarkStatus.Message(
+                                                            "Failed when deploying orchestrator", ko.getMessage()),
+                                                    Integer.MIN_VALUE)));
+                        } else {
+                            pending.remove(resource.metadata().name(), trigger);
+                        }
+                    });
                     return trigger;
                 } catch (final RuntimeException re) {
                     pending.remove(resource.metadata().name());
@@ -190,6 +211,15 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
             super.onAdd(resource);
         } catch (final RuntimeException re) {
             logger.log(SEVERE, re, () -> "Can't handle resource addition: " + resource);
+            pending.put(
+                    resource.metadata().name(),
+                    setStatus(
+                            resource.metadata().name(),
+                            new GatlingBenchmarkStatus(
+                                    FAILED,
+                                    new GatlingBenchmarkStatus.Message(
+                                            "Failed when creating orchestrator", re.getMessage()),
+                                    Integer.MIN_VALUE)));
         }
     }
 
@@ -208,106 +238,106 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         }
     }
 
+    // todo: add retries?
+    private CompletionStage<?> setStatus(final String name, final GatlingBenchmarkStatus status) {
+        final var uri = URI.create(baseUri + '/' + name + "/status");
+        final var payload = "{\"status\":" + json.toString(status) + "}";
+        final var promise = kubernetes
+                .sendAsync(
+                        HttpRequest.newBuilder()
+                                .method("PATCH", HttpRequest.BodyPublishers.ofString(payload, UTF_8))
+                                .uri(uri)
+                                .header("content-type", "application/merge-patch+json")
+                                .build(),
+                        ofString())
+                .thenAccept(res -> {
+                    if (res.statusCode() > 299) {
+                        logger.warning(() -> "Can't update status of benchmark '" + name + "': " + res.body());
+                    }
+                });
+        promise.whenComplete((ok, ko) -> pending.remove(name, promise));
+        return promise;
+    }
+
     // trigger is as "simple" as launching an orchestrator
     private CompletionStage<?> trigger(final GatlingBenchmark benchmark) {
-        final var placeholders = new HashMap<String, String>();
+        return deployer.deploy("gatling-operator#generic-job", toPlaceholders(benchmark));
+    }
 
-        // defaults
+    // note: this can be enhanced enabling to override and merge some placeholders like env, labels ones
+    private Map<String, String> toPlaceholders(final GatlingBenchmark benchmark) {
+        final var placeholders = new HashMap<String, String>(
+                configuration.orchestrator() == null ? Map.of() : configuration.orchestrator());
         placeholders.put(
                 "generic-job.name", computeOrchestratorName(benchmark.metadata().name()));
         placeholders.put("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION.toLowerCase(Locale.ROOT));
         placeholders.put(
                 "generic-job.imagePullPolicy", VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent");
-
-        final var env = new ArrayList<>(List.of(new Env(
-                "K8S_POD_IP",
-                null,
-                new Env.EnvVarSource(null, new Env.ObjectFieldSelector(null, "status.podIP"), null, null))));
-        final var labels = new HashMap<>(Map.of(CRD_LABEL, benchmark.metadata().name()));
-
-        // overrides
-        final var pod =
-                merge(benchmark.spec().orchestrator(), configuration.runtime().orchestrator());
-        if (pod != null) {
-            if (pod.affinity() != null) {
-                placeholders.put("generic-job.affinity", json.toString(pod.affinity()));
-            }
-            if (pod.nodeSelector() != null) {
-                placeholders.put("generic-job.nodeSelector", json.toString(pod.nodeSelector()));
-            }
-            if (pod.tolerations() != null) {
-                placeholders.put("generic-job.tolerations", json.toString(pod.tolerations()));
-            }
-            if (pod.dnsConfig() != null) {
-                placeholders.put("generic-job.dnsConfig", json.toString(pod.dnsConfig()));
-            }
-            if (pod.activeDeadlineSeconds() != null) {
-                placeholders.put("generic-job.activeDeadlineSeconds", Long.toString(pod.activeDeadlineSeconds()));
-            }
-            if (pod.ttlSecondsAfterFinished() != null) {
-                placeholders.put("generic-job.ttlSecondsAfterFinished", Long.toString(pod.ttlSecondsAfterFinished()));
-            }
-            if (pod.podSecurityContext() != null) {
-                placeholders.put("generic-job.podSecurityContext", json.toString(pod.podSecurityContext()));
-            }
-            if (pod.containerSecurityContext() != null) {
-                placeholders.put("generic-job.containerSecurityContext", json.toString(pod.containerSecurityContext()));
-            }
-            if (pod.resources() != null) {
-                placeholders.put("generic-job.resources", json.toString(pod.resources()));
-            }
-            if (pod.image() != null) {
-                placeholders.put("generic-job.image", pod.image());
-            }
-            if (pod.imagePullPolicy() != null) {
-                placeholders.put("generic-job.imagePullPolicy", pod.imagePullPolicy());
-            }
-            if (pod.imagePullSecrets() != null) {
-                placeholders.put("generic-job.imagePullSecrets", json.toString(pod.imagePullSecrets()));
-            }
-            if (pod.initContainers() != null) {
-                placeholders.put("generic-job.initContainers", json.toString(pod.initContainers()));
-            }
-            if (pod.labels() != null) {
-                labels.putAll(pod.labels());
-            }
-            if (pod.annotations() != null) {
-                placeholders.put("generic-job.annotations", json.toString(pod.annotations()));
-            }
-            if (pod.podLabels() != null) {
-                placeholders.put("generic-job.podLabels", json.toString(pod.podLabels()));
-            }
-            if (pod.podAnnotations() != null) {
-                placeholders.put("generic-job.podAnnotations", json.toString(pod.podAnnotations()));
-            }
-            if (pod.env() != null) {
-                env.addAll(pod.env());
-            }
-        }
-        if (!env.isEmpty()) {
-            placeholders.put("generic-job.env", json.toString(env));
-        }
-
-        // specific
-        placeholders.put("generic-job.labels", json.toString(labels));
-
-        // todo once orchestrator is dev
-        final var injector =
-                merge(benchmark.spec().injector(), configuration.runtime().injectors());
-        final var reporters = benchmark.spec().reporters() == null
-                        || benchmark.spec().reporters().isEmpty()
-                ? List.of()
-                : benchmark.spec().reporters().stream()
-                        .map(it -> merge(it, configuration.runtime().reporters()))
-                        .toList();
+        placeholders.put(
+                "generic-job.env",
+                json.toString(List.of(Map.of(
+                        "name", "K8S_POD_IP", "valueFrom", Map.of("fieldRef", Map.of("fieldPath", "status.podIP"))))));
+        placeholders.put(
+                "generic-job.labels",
+                json.toString(Map.of(
+                        CRD_LABEL, benchmark.metadata().name(),
+                        START_LABEL, Long.toString(clock.instant().toEpochMilli()))));
+        placeholders.put("generic-job.command", json.toString(List.of( // assume jib
+                "java",
+                "-cp",
+                // FIXME
+                "/opt/yupiik/gatling-operator-controller/custom/*:/opt/yupiik/gatling-operator-controller/*:",
+                Launcher.class.getName()
+        )));
         placeholders.put(
                 "generic-job.args",
-                json.toString(List.of(
-                        // todo
-                        )));
-        // todo: +pass other pod configurations as string as well directly?
+                json.toString(Stream.concat(
+                                toCli(benchmark.spec()),
+                                Stream.of(
+                                        "--benchmark-name", benchmark.metadata().name()))
+                        .toList()));
+        return placeholders;
+    }
 
-        return deployer.deploy("gatling-operator#generic-job", placeholders);
+    private Stream<String> toCli(final GatlingBenchmarkSpec spec) {
+        final var index = new AtomicInteger();
+        return Stream.concat(
+                Stream.of(
+                        "bench",
+                        "--spec-auto-clean",
+                        Boolean.toString(spec.autoClean()),
+                        "--spec-pipeline-length",
+                        spec.pipeline() == null
+                                ? "0"
+                                : Integer.toString(spec.pipeline().size())),
+                spec.pipeline() == null
+                        ? Stream.empty()
+                        : spec.pipeline().stream().flatMap(it -> {
+                            final var idx = index.getAndIncrement();
+                            final var prefix = "--spec-pipeline-" + idx + "-";
+                            return Stream.concat(
+                                    Stream.of(
+                                            prefix + "alveolus", it.name(),
+                                            prefix + "range", Integer.toString(it.range())),
+                                    toPlaceholdersCli(it.placeholders(), prefix + "placeholders-"));
+                        }));
+    }
+
+    private Stream<String> toPlaceholdersCli(final Map<String, String> placeholders, final String prefix) {
+        final var index = new AtomicInteger();
+        return Stream.concat(
+                Stream.of(
+                        prefix + "-length",
+                        placeholders == null || placeholders.isEmpty() ? "0" : Integer.toString(placeholders.size())),
+                placeholders == null
+                        ? Stream.empty()
+                        : placeholders.entrySet().stream().flatMap(it -> {
+                            final var idx = index.getAndIncrement();
+                            final var mapPrefix = prefix + idx + "-";
+                            return Stream.of(
+                                    mapPrefix + "key", it.getKey(),
+                                    mapPrefix + "value", it.getValue());
+                        }));
     }
 
     private Map<String, String> merge(final Map<String, String> a, final Map<String, String> b) {
@@ -315,57 +345,6 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 .filter(Objects::nonNull)
                 .flatMap(it -> it.entrySet().stream())
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (p, s) -> p));
-    }
-
-    private PodConfiguration merge(final PodConfiguration specific, final PodConfiguration globals) {
-        if (specific == null) {
-            return globals;
-        }
-        if (globals == null) {
-            return specific;
-        }
-        return new PodConfiguration( // for now it is a one level merge
-                specific.affinity() == null ? globals.affinity() : specific.affinity(),
-                specific.nodeSelector() == null ? globals.nodeSelector() : specific.nodeSelector(),
-                specific.tolerations() == null ? globals.tolerations() : specific.tolerations(),
-                specific.env() == null
-                        ? globals.env()
-                        : (globals.env() == null
-                                ? specific.env()
-                                : Stream.concat(
-                                                specific.env().stream(),
-                                                globals.env().stream().filter(it -> specific.env().stream()
-                                                        .noneMatch(e -> Objects.equals(e.name(), it.name()))))
-                                        .toList()),
-                specific.dnsConfig() == null ? globals.dnsConfig() : specific.dnsConfig(),
-                specific.podSecurityContext() == null ? globals.podSecurityContext() : specific.podSecurityContext(),
-                specific.containerSecurityContext() == null
-                        ? globals.containerSecurityContext()
-                        : specific.containerSecurityContext(),
-                specific.ttlSecondsAfterFinished() == null
-                        ? globals.ttlSecondsAfterFinished()
-                        : specific.ttlSecondsAfterFinished(),
-                specific.activeDeadlineSeconds() == null
-                        ? globals.activeDeadlineSeconds()
-                        : specific.activeDeadlineSeconds(),
-                specific.resources() == null ? globals.resources() : specific.resources(),
-                specific.image() == null ? globals.image() : specific.image(),
-                specific.imagePullPolicy() == null ? globals.imagePullPolicy() : specific.imagePullPolicy(),
-                specific.imagePullSecrets() == null ? globals.imagePullSecrets() : specific.imagePullSecrets(),
-                specific.initContainers() == null
-                        ? globals.initContainers()
-                        : (globals.initContainers() == null
-                                ? specific.initContainers()
-                                : Stream.concat(
-                                                specific.initContainers().stream(),
-                                                globals.initContainers().stream()
-                                                        .filter(it -> specific.initContainers().stream()
-                                                                .noneMatch(e -> Objects.equals(e.name(), it.name()))))
-                                        .toList()),
-                merge(specific.labels(), globals.labels()),
-                merge(specific.annotations(), globals.annotations()),
-                merge(specific.podLabels(), globals.podLabels()),
-                merge(specific.podAnnotations(), globals.podAnnotations()));
     }
 
     private String computeOrchestratorName(final String name) {
@@ -389,7 +368,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 .sendAsync(
                         HttpRequest.newBuilder()
                                 .GET()
-                                .uri(URI.create(baseJobsUri + "?" + "limit=500&"
+                                .uri(URI.create(baseJobsUri + "?limit=500&"
                                         + // unlikely we get > 500 jobs, ie ~500 gatling instances + orchestrator + post
                                         // jobs if any
                                         "labelSelector="

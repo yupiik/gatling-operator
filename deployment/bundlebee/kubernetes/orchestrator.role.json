@@ -19,6 +19,30 @@
         "create",
         "get"
       ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks"
+      ],
+      "verbs": [
+        "get",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks/status"
+      ],
+      "verbs": [
+        "get",
+        "patch"
+      ]
     }
   ]
 }

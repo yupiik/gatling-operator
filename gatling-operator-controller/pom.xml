@@ -41,6 +41,11 @@
       <artifactId>bundlebee-alveolus-generic-job</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>kubernetes-model</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>io.yupiik.fusion</groupId>
