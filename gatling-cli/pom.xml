@@ -31,6 +31,17 @@
     </dependency>
 
     <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>bundlebee-fusion</artifactId>
+      <version>${parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>bundlebee-alveolus-generic-job</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>io.yupiik.fusion</groupId>
       <artifactId>fusion-testing</artifactId>
       <version>${yupiik-fusion.version}</version>

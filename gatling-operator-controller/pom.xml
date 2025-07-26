@@ -36,6 +36,11 @@
       <artifactId>bundlebee-fusion</artifactId>
       <version>${parent.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>bundlebee-alveolus-generic-job</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>io.yupiik.fusion</groupId>
@@ -67,50 +72,6 @@
                   </includes>
                 </resource>
               </resources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>io.yupiik</groupId>
-        <artifactId>bundlebee-maven-plugin</artifactId>
-        <version>${yupiik-bundlebee.version}</version>
-        <configuration>
-          <kubeconfig>explicit</kubeconfig>
-          <alveolus>gatling-operator#orchestrator</alveolus>
-          <kubeNamespace>@unexistingNamespace</kubeNamespace>
-          <manifest>${project.basedir}/src/main/resources/bundlebee/manifest.json</manifest>
-          <mavenRepositoriesDownloadsEnabled>true</mavenRepositoriesDownloadsEnabled>
-          <customPlaceholders>
-            <bundlebee-placeholder-import-env>${project.basedir}/src/main/bundlebee/defaults.properties</bundlebee-placeholder-import-env>
-          </customPlaceholders>
-        </configuration>
-        <executions>
-          <execution>
-            <id>generate-placeholder-doc</id>
-            <goals>
-              <goal>placeholder-extract</goal>
-            </goals>
-            <phase>process-classes</phase>
-            <configuration>
-              <dumpLocation>${project.parent.basedir}/documentation/src/main/minisite/content/_partials/generated/deployment/orchestrator</dumpLocation>
-              <descriptions>${project.basedir}/src/main/bundlebee/descriptions.properties</descriptions>
-            </configuration>
-          </execution>
-          <execution>
-            <id>descriptor-linting</id>
-            <goals>
-              <goal>lint</goal>
-            </goals>
-            <phase>process-classes</phase>
-            <configuration>
-              <failLevel>WARNING</failLevel>
-              <ignoredRules>
-                <!-- we want shared cpu -->
-                <ignoredRule>cpu-limits</ignoredRule>
-                <!-- just our default -->
-                <ignoredRule>no-latest</ignoredRule>
-              </ignoredRules>
             </configuration>
           </execution>
         </executions>

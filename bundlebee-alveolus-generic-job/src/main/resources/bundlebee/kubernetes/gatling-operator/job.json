@@ -1,0 +1,44 @@
+{
+  "apiVersion": "batch/v1",
+  "kind": "Job",
+  "metadata": {
+    "name": "{{generic-job.name}}",
+    "labels": {{generic-job.labels:- {} }},
+    "annotations": {{generic-job.annotations:- {} }}
+  },
+  "spec": {
+    "backoffLimit": {{generic-job.backoffLimit:-0}},
+    "ttlSecondsAfterFinished": {{generic-job.ttlSecondsAfterFinished:-300}},
+    "template": {
+      "metadata": {
+        "labels": {{generic-job.podLabels:- {{generic-job.labels:- {} }} }},
+        "annotations": {{generic-job.podAnnotations:- {} }}
+      },
+      "spec": {
+        "activeDeadlineSeconds": {{generic-job.activeDeadlineSeconds:-6000}},
+        "imagePullSecrets": {{generic-job.imagePullSecrets:- [] }},
+        "automountServiceAccountToken": {{generic-job.automountServiceAccountToken:-true}},
+        "serviceAccountName": "{{generic-job.serviceAccountName:-gatling-orchestrator}}",
+        "securityContext": {{generic-job.podSecurityContext:- {"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":10000,"allowPrivilegeEscalation":false} }},
+        "dnsConfig": {{generic-job.dnsConfig:- {"options":[{"name":"ndots","value":"2"}]} }},
+        "restartPolicy": "{{generic-job.restartPolicy:-Never}}",
+        "nodeSelector": {{generic-job.nodeSelector:- {} }},
+        "affinity": {{generic-job.affinity:- {} }},
+        "tolerations": {{generic-job.tolerations:- [] }},
+        "initContainers": {{generic-job.initContainers:- [] }},
+        "containers": [
+          {
+            "name": "orchestrator",
+            "image": "{{generic-job.image:-yupiik/gatling-cli:latest}}",
+            "imagePullPolicy": "{{generic-job.imagePullPolicy:-Always}}",
+            "args": {{generic-job.args:- [] }},
+            "env": {{generic-job.env:- [] }},
+            "workingDir": "/tmp",
+            "securityContext": {{generic-job.containerSecurityContext:- {"fsGroup":10000,"fsGroupChangePolicy":"OnRootMismatch","seccompProfile":{"type":"RuntimeDefault"}} }},
+            "resources": {{generic-job.resources:- {"limits":{"memory":"{{generic-job.memory:-128Mi}}"},"requests":{"cpu":"{{generic-job.cpu:-100m}}","memory":"{{generic-job.memory:-128Mi}}"}} }}
+          }
+        ]
+      }
+    }
+  }
+}

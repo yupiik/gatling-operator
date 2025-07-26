@@ -214,12 +214,10 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
         // defaults
         placeholders.put(
-                "orchestrator.name",
-                computeOrchestratorName(benchmark.metadata().name()));
-        placeholders.put("orchestrator.image", "yupiik/gatling-cli:" + VersionHolder.VERSION.toLowerCase(Locale.ROOT));
+                "generic-job.name", computeOrchestratorName(benchmark.metadata().name()));
+        placeholders.put("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION.toLowerCase(Locale.ROOT));
         placeholders.put(
-                "orchestrator.imagePullPolicy",
-                VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent");
+                "generic-job.imagePullPolicy", VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent");
 
         final var env = new ArrayList<>(List.of(new Env(
                 "K8S_POD_IP",
@@ -232,67 +230,66 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 merge(benchmark.spec().orchestrator(), configuration.runtime().orchestrator());
         if (pod != null) {
             if (pod.affinity() != null) {
-                placeholders.put("orchestrator.affinity", json.toString(pod.affinity()));
+                placeholders.put("generic-job.affinity", json.toString(pod.affinity()));
             }
             if (pod.nodeSelector() != null) {
-                placeholders.put("orchestrator.nodeSelector", json.toString(pod.nodeSelector()));
+                placeholders.put("generic-job.nodeSelector", json.toString(pod.nodeSelector()));
             }
             if (pod.tolerations() != null) {
-                placeholders.put("orchestrator.tolerations", json.toString(pod.tolerations()));
+                placeholders.put("generic-job.tolerations", json.toString(pod.tolerations()));
             }
             if (pod.dnsConfig() != null) {
-                placeholders.put("orchestrator.dnsConfig", json.toString(pod.dnsConfig()));
+                placeholders.put("generic-job.dnsConfig", json.toString(pod.dnsConfig()));
             }
             if (pod.activeDeadlineSeconds() != null) {
-                placeholders.put("orchestrator.activeDeadlineSeconds", Long.toString(pod.activeDeadlineSeconds()));
+                placeholders.put("generic-job.activeDeadlineSeconds", Long.toString(pod.activeDeadlineSeconds()));
             }
             if (pod.ttlSecondsAfterFinished() != null) {
-                placeholders.put("orchestrator.ttlSecondsAfterFinished", Long.toString(pod.ttlSecondsAfterFinished()));
+                placeholders.put("generic-job.ttlSecondsAfterFinished", Long.toString(pod.ttlSecondsAfterFinished()));
             }
             if (pod.podSecurityContext() != null) {
-                placeholders.put("orchestrator.podSecurityContext", json.toString(pod.podSecurityContext()));
+                placeholders.put("generic-job.podSecurityContext", json.toString(pod.podSecurityContext()));
             }
             if (pod.containerSecurityContext() != null) {
-                placeholders.put(
-                        "orchestrator.containerSecurityContext", json.toString(pod.containerSecurityContext()));
+                placeholders.put("generic-job.containerSecurityContext", json.toString(pod.containerSecurityContext()));
             }
             if (pod.resources() != null) {
-                placeholders.put("orchestrator.resources", json.toString(pod.resources()));
+                placeholders.put("generic-job.resources", json.toString(pod.resources()));
             }
             if (pod.image() != null) {
-                placeholders.put("orchestrator.image", pod.image());
+                placeholders.put("generic-job.image", pod.image());
             }
             if (pod.imagePullPolicy() != null) {
-                placeholders.put("orchestrator.imagePullPolicy", pod.imagePullPolicy());
+                placeholders.put("generic-job.imagePullPolicy", pod.imagePullPolicy());
             }
             if (pod.imagePullSecrets() != null) {
-                placeholders.put("orchestrator.imagePullSecrets", json.toString(pod.imagePullSecrets()));
+                placeholders.put("generic-job.imagePullSecrets", json.toString(pod.imagePullSecrets()));
             }
             if (pod.initContainers() != null) {
-                placeholders.put("orchestrator.initContainers", json.toString(pod.initContainers()));
+                placeholders.put("generic-job.initContainers", json.toString(pod.initContainers()));
             }
             if (pod.labels() != null) {
                 labels.putAll(pod.labels());
             }
             if (pod.annotations() != null) {
-                placeholders.put("orchestrator.annotations", json.toString(pod.annotations()));
+                placeholders.put("generic-job.annotations", json.toString(pod.annotations()));
             }
             if (pod.podLabels() != null) {
-                placeholders.put("orchestrator.podLabels", json.toString(pod.podLabels()));
+                placeholders.put("generic-job.podLabels", json.toString(pod.podLabels()));
             }
             if (pod.podAnnotations() != null) {
-                placeholders.put("orchestrator.podAnnotations", json.toString(pod.podAnnotations()));
+                placeholders.put("generic-job.podAnnotations", json.toString(pod.podAnnotations()));
             }
             if (pod.env() != null) {
                 env.addAll(pod.env());
             }
         }
         if (!env.isEmpty()) {
-            placeholders.put("orchestrator.env", json.toString(env));
+            placeholders.put("generic-job.env", json.toString(env));
         }
 
         // specific
-        placeholders.put("orchestrator.labels", json.toString(labels));
+        placeholders.put("generic-job.labels", json.toString(labels));
 
         // todo once orchestrator is dev
         final var injector =
@@ -304,13 +301,13 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                         .map(it -> merge(it, configuration.runtime().reporters()))
                         .toList();
         placeholders.put(
-                "orchestrator.args",
+                "generic-job.args",
                 json.toString(List.of(
                         // todo
                         )));
         // todo: +pass other pod configurations as string as well directly?
 
-        return deployer.deploy("gatling-operator#orchestrator", placeholders);
+        return deployer.deploy("gatling-operator#generic-job", placeholders);
     }
 
     private Map<String, String> merge(final Map<String, String> a, final Map<String, String> b) {

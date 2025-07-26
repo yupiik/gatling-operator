@@ -3,10 +3,10 @@
   "interpolateAlveoli": true,
   "alveoli": [
     {
-      "name": "gatling-operator#orchestrator",
+      "name": "gatling-operator#generic-job",
       "descriptors": [
         {
-          "name": "gatling-operator/orchestrator.json"
+          "name": "gatling-operator/job.json"
         }
       ]
     }
