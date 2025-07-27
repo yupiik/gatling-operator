@@ -26,6 +26,7 @@
         "affinity": {{generic-job.affinity:- {} }},
         "tolerations": {{generic-job.tolerations:- [] }},
         "initContainers": {{generic-job.initContainers:- [] }},
+        "volumes": {{generic-job.volumes:- [] }},
         "containers": [
           {
             "name": "orchestrator",
@@ -35,6 +36,7 @@
             "args": {{generic-job.args:- [] }},
             "env": {{generic-job.env:- [] }},
             "workingDir": "/tmp",
+            "volumeMounts": {{generic-job.volumeMounts:- [] }},
             "securityContext": {{generic-job.containerSecurityContext:- {"fsGroup":10000,"fsGroupChangePolicy":"OnRootMismatch","seccompProfile":{"type":"RuntimeDefault"}} }},
             "resources": {{generic-job.resources:- {"limits":{"memory":"{{generic-job.memory:-128Mi}}"},"requests":{"cpu":"{{generic-job.cpu:-100m}}","memory":"{{generic-job.memory:-128Mi}}"}} }}
           }

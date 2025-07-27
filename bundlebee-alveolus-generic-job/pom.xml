@@ -19,7 +19,7 @@
         <version>${yupiik-bundlebee.version}</version>
         <configuration>
           <kubeconfig>explicit</kubeconfig>
-          <alveolus>gatling-operator#generic-job</alveolus>
+          <alveolus>gatling-operator#generic-job#awaited</alveolus>
           <kubeNamespace>@unexistingNamespace</kubeNamespace>
           <manifest>${project.basedir}/src/main/resources/bundlebee/manifest.json</manifest>
           <mavenRepositoriesDownloadsEnabled>true</mavenRepositoriesDownloadsEnabled>

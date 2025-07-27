@@ -17,19 +17,19 @@ class GatlingBenchmarkOperatorTest {
     void create(final Kubernetes kubernetes) {
         kubernetes.sendEvent(
                 """
-                {
-                  "type": "ADDED",
-                  "object": {
-                    "apiVersion": "gatling.yupiik.io/v1",
-                    "kind": "GatlingBenchmark",
-                    "metadata": {
-                      "name": "bench-1",
-                      "namespace": "junit"
-                    },
-                    "spec": {
-                    }
-                  }
-                }""");
+                        {
+                          "type": "ADDED",
+                          "object": {
+                            "apiVersion": "gatling.yupiik.io/v1",
+                            "kind": "GatlingBenchmark",
+                            "metadata": {
+                              "name": "bench-1",
+                              "namespace": "junit"
+                            },
+                            "spec": {
+                            }
+                          }
+                        }""");
         final var request = kubernetes.requests(1).getFirst();
         assertEquals(
                 "POST /api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict",
@@ -60,18 +60,19 @@ class GatlingBenchmarkOperatorTest {
                               },
                               "spec": {
                                 "activeDeadlineSeconds": 6000,
+                                "volumes": [],
                                 "containers": [
                                   {
                                     "args": [
                                       "bench",
+                                      "--benchmark-base-uri",
+                                      "https://kubernetes.api/apis/gatling.yupiik.io/v1/namespaces/default/GatlingBenchmarks/bench-1",
                                       "--spec-auto-clean",
                                       "false",
                                       "--spec-pipeline-length",
-                                      "0",
-                                      "--benchmark-name",
-                                      "bench-1"
+                                      "0"
                                     ],
-                                    "image": "yupiik/gatling-cli:1.0-snapshot",
+                                    "image": "yupiik/gatling-cli:latest",
                                     "imagePullPolicy": "Always",
                                     "workingDir": "/tmp",
                                     "name": "orchestrator",
@@ -98,6 +99,7 @@ class GatlingBenchmarkOperatorTest {
                                       "@/opt/yupiik/gatling-operator/gatling-operator-controller/jib-classpath-file",
                                       "io.yupiik.fusion.framework.api.main.Launcher"
                                     ],
+                                    "volumeMounts": [],
                                     "resources": {
                                       "requests": {
                                         "cpu": "100m",
@@ -179,19 +181,19 @@ class GatlingBenchmarkOperatorTest {
                 () -> {
                     kubernetes.sendEvent(
                             """
-                            {
-                              "type": "DELETED",
-                              "object": {
-                                "apiVersion": "gatling.yupiik.io/v1",
-                                "kind": "GatlingBenchmark",
-                                "metadata": {
-                                  "name": "bench-1",
-                                  "namespace": "junit"
-                                },
-                                "spec": {
-                                }
-                              }
-                            }""");
+                                    {
+                                      "type": "DELETED",
+                                      "object": {
+                                        "apiVersion": "gatling.yupiik.io/v1",
+                                        "kind": "GatlingBenchmark",
+                                        "metadata": {
+                                          "name": "bench-1",
+                                          "namespace": "junit"
+                                        },
+                                        "spec": {
+                                        }
+                                      }
+                                    }""");
                     kubernetes.requests(3);
                 });
         final var request = kubernetes.requests(0);

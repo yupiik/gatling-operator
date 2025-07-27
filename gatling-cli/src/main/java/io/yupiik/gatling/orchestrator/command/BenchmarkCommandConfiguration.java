@@ -6,13 +6,11 @@ import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec;
 
 @RootConfiguration("bench")
 public record BenchmarkCommandConfiguration(
+        @Property(documentation = "Spec of the benchmark.") GatlingBenchmarkSpec spec,
         @Property(
-                        documentation = "Spec of the benchmark.",
-                        defaultValue =
-                                "new io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec(java.util.List.of(), false)")
-                GatlingBenchmarkSpec spec,
-        @Property(
-                        value = "benchmark-name",
-                        documentation = "Name of the `GatlingBenchmark` CRD to update the status.",
-                        defaultValue = "\"\"")
-                String benchmarkName) {}
+                        value = "benchmark-base-uri",
+                        documentation = "Base URI of the benchmark endpoint. "
+                                + "It goes from to the benchmark name (end of the path). "
+                                + "It is used appending `/status` and directly for auto clean if enabled.",
+                        required = true)
+                String baseUri) {}

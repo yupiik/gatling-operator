@@ -6,6 +6,7 @@ import io.yupiik.bundlebee.core.kube.KubeClient;
 import io.yupiik.bundlebee.core.lang.SubstitutorProducer;
 import io.yupiik.bundlebee.core.service.AlveolusHandler;
 import io.yupiik.bundlebee.core.service.ArchiveReader;
+import io.yupiik.bundlebee.core.service.ConditionAwaiter;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import io.yupiik.fusion.framework.build.api.scanning.Bean;
 import javax.enterprise.context.Dependent;
@@ -47,6 +48,12 @@ public class BundleBeeBeans {
     @ApplicationScoped
     public AlveolusHandler alveolusHandler(final SeContainer container) {
         return container.select(AlveolusHandler.class).get();
+    }
+
+    @Bean
+    @ApplicationScoped
+    public ConditionAwaiter conditionAwaiter(final SeContainer container) {
+        return container.select(ConditionAwaiter.class).get();
     }
 
     @Bean

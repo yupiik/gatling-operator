@@ -6,4 +6,51 @@
 :minisite-nav-prev-label: Deployment
 :minisite-nav-prev-link: deployment.html
 
-TBD
+The idea behind `gatlingbenchmarks.gatling.yupiik.io` CRD is to define a pipeline of self contained `Job` defined as Yupiik BundleBee alveolus.
+
+IMPORTANT: as of today it is important is is self contained since the cleanup only handles `Job`. Technically we can use Yupiik BundleBee to know what to delete but the issue is that the operator will likely miss some `Role` (permissions) so we limit ourselves to jobs for now.
+If you deploy anything else, it will be deployed but not undeployed so you can need to have some garbage collection mechanism.
+
+== Sample
+
+Here is a sample CRD defining a pipeline spawning a tomcat and launching a gatling scenario:
+
+[source,yaml]
+----
+apiVersion: gatling.yupiik.io/v1
+kind: GatlingBenchmark
+metadata:
+  name: my-bench
+  namespace: my-benchmark-namespace
+spec:
+  # ensure the CRD/bench is dropped after the pipeline execution (disable to debug)
+  autoClean: true
+  timeout: 3600000  # 1h
+  pipeline:
+    # start a server
+    - name: gatling-operator#generic-job#fire-and-forget
+      # first step
+      range: 0
+      timeout: 300000  # 5 minutes
+      placeholders:
+        users: "100"
+        duration: "60"
+        scenario: "basic-simulation"
+    # run 2 injectors (keep in mind they can use their index to know how they will behave or adjust the injection profile)
+    - name: gatling-operator#generic-job#awaited
+      range: 1
+      timeout: 3000000 # 50 minutes
+      placeholders:
+        generic-job.command: "[\"java\", ....]"
+        generic-job.image: "my-gatling-image"
+    - name: gatling-operator#generic-job#awaited
+      range: 1
+      timeout: 3000000 # 50 minutes
+      placeholders:
+        generic-job.command: "[\"java\", ....]"
+        generic-job.image: "my-gatling-image"
+----
+
+TIP: in general we prefer JSON for descriptors but YAML works well and is more common so we used it for the sample.
+
+TIP: this goes beyond the scope of a sample but customizing the affinity (using anti affinity actually) you can ensure the injectors, servers and potentially other `Pod` are on different nodes which makes a better distribution of the resource usage.

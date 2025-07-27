@@ -261,7 +261,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
     // trigger is as "simple" as launching an orchestrator
     private CompletionStage<?> trigger(final GatlingBenchmark benchmark) {
-        return deployer.deploy("gatling-operator#generic-job", toPlaceholders(benchmark));
+        return deployer.deploy(
+                "gatling-operator#generic-job#awaited", benchmark.spec().timeout(), toPlaceholders(benchmark));
     }
 
     // note: this can be enhanced enabling to override and merge some placeholders like env, labels ones
@@ -292,9 +293,11 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         placeholders.put(
                 "generic-job.args",
                 json.toString(Stream.concat(
-                                toCli(benchmark.spec()),
                                 Stream.of(
-                                        "--benchmark-name", benchmark.metadata().name()))
+                                        "bench",
+                                        "--benchmark-base-uri",
+                                        baseUri + '/' + benchmark.metadata().name()),
+                                toCli(benchmark.spec()))
                         .toList()));
         return placeholders;
     }
@@ -303,7 +306,6 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         final var index = new AtomicInteger();
         return Stream.concat(
                 Stream.of(
-                        "bench",
                         "--spec-auto-clean",
                         Boolean.toString(spec.autoClean()),
                         "--spec-pipeline-length",

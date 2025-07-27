@@ -253,6 +253,8 @@
               <jvmFlag>-Dcom.sun.jndi.ldap.object.trustSerialData=false</jvmFlag>
               <jvmFlag>-Dorg.apache.webbeans.spi.deployer.skipValidations=true</jvmFlag>
               <jvmFlag>-Dapp.build.timestamp=${maven.build.timestamp}</jvmFlag>
+              <!-- let's make it long enough: 2 days -->
+              <jvmFlag>-Dbundlebee.awaiter.retryInterval=172800000</jvmFlag>
             </jvmFlags>
             <environment>
               <LANG>en_US.UTF-8</LANG>
