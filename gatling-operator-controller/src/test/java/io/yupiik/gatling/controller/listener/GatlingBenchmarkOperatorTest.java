@@ -66,9 +66,7 @@ class GatlingBenchmarkOperatorTest {
                                     "args": [
                                       "bench",
                                       "--benchmark-base-uri",
-                                      "https://kubernetes.api/apis/gatling.yupiik.io/v1/namespaces/default/GatlingBenchmarks/bench-1",
-                                      "--spec-auto-clean",
-                                      "false",
+                                      "https://kubernetes.api/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/bench-1",
                                       "--spec-pipeline-length",
                                       "0"
                                     ],

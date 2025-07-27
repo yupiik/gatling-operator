@@ -15,6 +15,16 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 public class JUnitModule implements FusionModule {
+    private final Kubernetes kubernetes;
+
+    public JUnitModule() {
+        this(null);
+    }
+
+    public JUnitModule(final Kubernetes kubernetes) {
+        this.kubernetes = kubernetes;
+    }
+
     @Override
     public BiPredicate<RuntimeContainer, FusionBean<?>> beanFilter() {
         return (c, b) -> b.type() != Clock.class || b instanceof ProvidedInstanceBean<?>;
@@ -27,9 +37,11 @@ public class JUnitModule implements FusionModule {
                 new BaseBean<Kubernetes>(Kubernetes.class, ApplicationScoped.class, 1_000, Map.of()) {
                     @Override
                     public Kubernetes create(final RuntimeContainer container, final List<Instance<?>> dependents) {
-                        return lookup(container, ExtensionContext.class, dependents)
-                                .getStore(KubernetesServerExtension.KEY)
-                                .get(Kubernetes.class, Kubernetes.class);
+                        return kubernetes == null
+                                ? lookup(container, ExtensionContext.class, dependents)
+                                        .getStore(KubernetesServerExtension.KEY)
+                                        .get(Kubernetes.class, Kubernetes.class)
+                                : kubernetes;
                     }
                 });
     }

@@ -1,4 +1,4 @@
-package io.yupiik.gatling.kubernetes.model;
+package io.yupiik.gatling.kubernetes.model.operator;
 
 import io.yupiik.fusion.framework.build.api.json.JsonModel;
 

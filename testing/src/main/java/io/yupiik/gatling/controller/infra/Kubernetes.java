@@ -122,6 +122,7 @@ public class Kubernetes implements AutoCloseable {
                 skipClose = switch (exchange.getRequestMethod()) {
                     case "GET" -> doGet(exchange);
                     case "POST" -> doPost(exchange);
+                    case "PATCH" -> doPatch(exchange);
                     case "DELETE" -> doDelete(exchange);
                     default -> false;
                 };
@@ -195,6 +196,15 @@ public class Kubernetes implements AutoCloseable {
                 default:
                     return false;
             }
+        }
+
+        protected boolean doPatch(final HttpExchange exchange) throws IOException {
+            final var path = exchange.getRequestURI().getPath();
+            if (path.startsWith("/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/")
+                    && path.endsWith("/status")) {
+                send(exchange, 200, "{}");
+            }
+            return false;
         }
 
         protected boolean doDelete(final HttpExchange exchange) throws IOException {

@@ -54,3 +54,7 @@ spec:
 TIP: in general we prefer JSON for descriptors but YAML works well and is more common so we used it for the sample.
 
 TIP: this goes beyond the scope of a sample but customizing the affinity (using anti affinity actually) you can ensure the injectors, servers and potentially other `Pod` are on different nodes which makes a better distribution of the resource usage.
+
+== Scheduling? (time)
+
+There is no `CronBenchmark` but you can use the CLI directly combined with a `CronJob` to achieve the same result.

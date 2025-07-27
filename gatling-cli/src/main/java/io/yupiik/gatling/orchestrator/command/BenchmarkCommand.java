@@ -1,8 +1,8 @@
 package io.yupiik.gatling.orchestrator.command;
 
-import static io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus.BenchmarkStatus.FAILED;
-import static io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus.BenchmarkStatus.FINISHED;
-import static io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus.BenchmarkStatus.RUNNING;
+import static io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus.BenchmarkStatus.FAILED;
+import static io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus.BenchmarkStatus.FINISHED;
+import static io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus.BenchmarkStatus.RUNNING;
 import static java.net.http.HttpResponse.BodyHandlers.ofString;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Optional.ofNullable;
@@ -19,8 +19,8 @@ import io.yupiik.fusion.framework.build.api.cli.Command;
 import io.yupiik.fusion.json.JsonMapper;
 import io.yupiik.fusion.kubernetes.client.KubernetesClient;
 import io.yupiik.gatling.controller.bundlebee.BundleBeeService;
-import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec;
-import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus;
+import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec;
+import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.util.Iterator;
@@ -81,39 +81,51 @@ public class BenchmarkCommand implements Runnable {
         }
         final var range = iterator.next();
         final var baseImplicitPlaceholders = Map.of(
+                "gatling-operator.implicit.version",
+                VersionHolder.VERSION,
                 "gatling-operator.implicit.orchestrator-ip",
-                        ofNullable(System.getenv("K8S_POD_IP")).orElse("localhost"),
-                "gatling-operator.implicit.parent-name", name,
-                "gatling-operator.implicit.range", Integer.toString(range.getKey()));
+                ofNullable(System.getenv("K8S_POD_IP")).orElse("localhost"),
+                "gatling-operator.implicit.parent-name",
+                name,
+                "gatling-operator.implicit.range",
+                Integer.toString(range.getKey()));
         final var index = new AtomicInteger();
-        return allOf(range.getValue().stream()
-                        .map(it -> {
-                            final var indexValue = Integer.toString(index.getAndIncrement());
-                            return bundleBee
-                                    .deploy(
-                                            it.name(),
-                                            it.timeout(),
-                                            merge(
-                                                    baseImplicitPlaceholders,
-                                                    Map.of(
-                                                            "generic-job.name",
-                                                            name + "-" + range.getKey() + "-" + indexValue,
-                                                            "generic-job.activeDeadlineSeconds",
-                                                            Long.toString(Math.max(
-                                                                            60_000,
-                                                                            Math.max(it.timeout(), globalTimeout))
-                                                                    / 1_000),
-                                                            // do not give perms to the job until it is explicit -
-                                                            // it.placeholdlers()
-                                                            "generic-job.serviceAccountName",
-                                                            "default",
-                                                            "gatling-operator.implicit.index",
-                                                            indexValue),
-                                                    it.placeholders()))
-                                    .toCompletableFuture();
-                        })
-                        .toArray(CompletableFuture<?>[]::new))
-                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, iterator));
+        return setStatus(new GatlingBenchmarkStatus(RUNNING, null, range.getKey()))
+                .thenComposeAsync(
+                        i -> allOf(range.getValue().stream()
+                                .map(it -> {
+                                    final var indexValue = Integer.toString(index.getAndIncrement());
+                                    return bundleBee
+                                            .deploy(
+                                                    it.name(),
+                                                    it.timeout(),
+                                                    merge(
+                                                            baseImplicitPlaceholders,
+                                                            Map.of(
+                                                                    "gatling-operator.implicit.index",
+                                                                    indexValue,
+                                                                    // defaults, can be overriden by custom placeholders
+                                                                    "generic-job.name",
+                                                                    name + "-" + range.getKey() + "-" + indexValue,
+                                                                    "generic-job.activeDeadlineSeconds",
+                                                                    Long.toString(
+                                                                            Math.max(
+                                                                                            60_000,
+                                                                                            Math.max(
+                                                                                                    it.timeout(),
+                                                                                                    globalTimeout))
+                                                                                    / 1_000),
+                                                                    // do not give perms to the job until it is explicit
+                                                                    // -
+                                                                    // it.placeholdlers()
+                                                                    "generic-job.serviceAccountName",
+                                                                    "default"),
+                                                            it.placeholders()))
+                                            .toCompletableFuture();
+                                })
+                                .toArray(CompletableFuture<?>[]::new)),
+                        executor)
+                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, iterator), executor);
     }
 
     @SafeVarargs
@@ -153,6 +165,9 @@ public class BenchmarkCommand implements Runnable {
                 // async finally
                 .thenComposeAsync(
                         error -> {
+                            if (error != null) {
+                                logger.log(SEVERE, error, error::getMessage);
+                            }
                             if (configuration.spec().autoClean()) {
                                 return delete();
                             }

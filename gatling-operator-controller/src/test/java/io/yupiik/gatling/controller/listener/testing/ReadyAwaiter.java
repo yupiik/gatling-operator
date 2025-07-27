@@ -1,10 +1,11 @@
-package io.yupiik.gatling.controller.infra;
+package io.yupiik.gatling.controller.listener.testing;
 
 import io.yupiik.bundlebee.core.kube.ApiPreloader;
 import io.yupiik.fusion.framework.api.lifecycle.Start;
 import io.yupiik.fusion.framework.api.scope.DefaultScoped;
 import io.yupiik.fusion.framework.build.api.event.OnEvent;
 import io.yupiik.fusion.framework.build.api.order.Order;
+import io.yupiik.gatling.controller.infra.Kubernetes;
 import javax.enterprise.inject.se.SeContainer;
 
 // ensure the automatic startup requests are done and we can start running tests

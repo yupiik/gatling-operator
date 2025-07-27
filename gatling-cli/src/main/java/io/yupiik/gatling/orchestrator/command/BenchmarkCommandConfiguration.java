@@ -2,7 +2,7 @@ package io.yupiik.gatling.orchestrator.command;
 
 import io.yupiik.fusion.framework.build.api.configuration.Property;
 import io.yupiik.fusion.framework.build.api.configuration.RootConfiguration;
-import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec;
+import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec;
 
 @RootConfiguration("bench")
 public record BenchmarkCommandConfiguration(

@@ -1,6 +1,6 @@
 package io.yupiik.gatling.controller.listener;
 
-import static io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus.BenchmarkStatus.FAILED;
+import static io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus.BenchmarkStatus.FAILED;
 import static java.net.http.HttpResponse.BodyHandlers.ofString;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -9,6 +9,7 @@ import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
+import static java.util.Locale.ROOT;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.logging.Level.SEVERE;
@@ -25,9 +26,11 @@ import io.yupiik.gatling.controller.configuration.GatlingOperatorConfiguration;
 import io.yupiik.gatling.controller.model.GatlingBenchmark;
 import io.yupiik.gatling.controller.model.Jobs;
 import io.yupiik.gatling.controller.version.VersionHolder;
-import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkSpec;
-import io.yupiik.gatling.kubernetes.model.GatlingBenchmarkStatus;
+import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec;
+import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus;
 import io.yupiik.kubernetes.operator.base.spi.Operator;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
@@ -40,6 +43,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -140,8 +144,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
         final var namespace = client.namespace().orElse("default");
         this.baseJobsUri = "https://kubernetes.api/api/v1/namespaces/" + namespace + "/jobs";
-        this.baseUri =
-                "https://kubernetes.api/apis/" + GROUP + '/' + VERSION + "/namespaces/" + namespace + "/" + NAME + 's';
+        this.baseUri = "https://kubernetes.api/apis/" + GROUP + '/' + VERSION + "/namespaces/" + namespace + "/"
+                + NAME.toLowerCase(ROOT) + 's';
     }
 
     @Override
@@ -262,7 +266,11 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     // trigger is as "simple" as launching an orchestrator
     private CompletionStage<?> trigger(final GatlingBenchmark benchmark) {
         return deployer.deploy(
-                "gatling-operator#generic-job#awaited", benchmark.spec().timeout(), toPlaceholders(benchmark));
+                "gatling-operator#generic-job#awaited",
+                benchmark.spec().timeout() == null
+                        ? 14_400_000L
+                        : benchmark.spec().timeout(),
+                toPlaceholders(benchmark));
     }
 
     // note: this can be enhanced enabling to override and merge some placeholders like env, labels ones
@@ -304,42 +312,45 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
     private Stream<String> toCli(final GatlingBenchmarkSpec spec) {
         final var index = new AtomicInteger();
-        return Stream.concat(
-                Stream.of(
-                        "--spec-auto-clean",
-                        Boolean.toString(spec.autoClean()),
-                        "--spec-pipeline-length",
+        return Stream.<Stream<String>>of(
+                        spec.autoClean() == null
+                                ? Stream.empty()
+                                : Stream.of("--spec-auto-clean", Boolean.toString(spec.autoClean())),
+                        spec.timeout() == null
+                                ? Stream.empty()
+                                : Stream.of("--spec-auto-timeout", Long.toString(spec.timeout())),
+                        Stream.of(
+                                "--spec-pipeline-length",
+                                spec.pipeline() == null
+                                        ? "0"
+                                        : Integer.toString(spec.pipeline().size())),
                         spec.pipeline() == null
-                                ? "0"
-                                : Integer.toString(spec.pipeline().size())),
-                spec.pipeline() == null
-                        ? Stream.empty()
-                        : spec.pipeline().stream().flatMap(it -> {
-                            final var idx = index.getAndIncrement();
-                            final var prefix = "--spec-pipeline-" + idx + "-";
-                            return Stream.concat(
-                                    Stream.of(
-                                            prefix + "alveolus", it.name(),
-                                            prefix + "range", Integer.toString(it.range())),
-                                    toPlaceholdersCli(it.placeholders(), prefix + "placeholders-"));
-                        }));
+                                ? Stream.empty()
+                                : spec.pipeline().stream().flatMap(it -> {
+                                    final var idx = index.getAndIncrement();
+                                    final var prefix = "--spec-pipeline-" + idx + "-";
+                                    return Stream.of(
+                                            prefix + "name", it.name(),
+                                            prefix + "range", Integer.toString(it.range()),
+                                            prefix + "placeholders",
+                                                    it.placeholders() == null
+                                                            ? ""
+                                                            : toPlaceholdersCliValue(it.placeholders()));
+                                }))
+                .flatMap(it -> it);
     }
 
-    private Stream<String> toPlaceholdersCli(final Map<String, String> placeholders, final String prefix) {
-        final var index = new AtomicInteger();
-        return Stream.concat(
-                Stream.of(
-                        prefix + "-length",
-                        placeholders == null || placeholders.isEmpty() ? "0" : Integer.toString(placeholders.size())),
-                placeholders == null
-                        ? Stream.empty()
-                        : placeholders.entrySet().stream().flatMap(it -> {
-                            final var idx = index.getAndIncrement();
-                            final var mapPrefix = prefix + idx + "-";
-                            return Stream.of(
-                                    mapPrefix + "key", it.getKey(),
-                                    mapPrefix + "value", it.getValue());
-                        }));
+    private String toPlaceholdersCliValue(final Map<String, String> placeholders) {
+        final var props = new Properties();
+        props.putAll(placeholders);
+        final var writer = new StringWriter();
+        try (writer) {
+            props.store(writer, "");
+        } catch (final IOException e) { // more than unlikely
+            logger.severe("Can't write properties");
+            throw new IllegalStateException(e);
+        }
+        return writer.toString();
     }
 
     private Map<String, String> merge(final Map<String, String> a, final Map<String, String> b) {
