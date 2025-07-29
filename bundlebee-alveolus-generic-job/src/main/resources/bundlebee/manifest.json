@@ -17,7 +17,8 @@
                   "type": "JSON_POINTER",
                   "pointer": "/status/failed",
                   "operatorType": "EQUALS",
-                  "value": "1"
+                  "value": "1",
+                  "failMessage": "Job failed"
                 },
                 {
                   "type": "JSON_POINTER",
@@ -37,7 +38,7 @@
         {
           "// description": "Deploy and await it runs a pod",
           "name": "gatling-operator/job.json",
-          "// awaitconditions": "ready (started) or finished (if fast)",
+          "// await conditions": "ready (started) or finished (if fast)",
           "awaitConditions": [
             {
               "command": "apply",
