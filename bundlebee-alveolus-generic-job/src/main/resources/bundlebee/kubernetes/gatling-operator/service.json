@@ -1,0 +1,13 @@
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "{{generic-job.name}}",
+    "labels": {{generic-job.labels:- {} }}
+  },
+  "spec": {
+    "clusterIp": "{{generic-job.clusterIp:-None}}",
+    "selector": { "job-name": "{{generic-job.name}}" },
+    "ports": {{generic-job.ports:- [ { "port": 8080, "targetPort": 8080 } ] }}
+  }
+}

@@ -44,4 +44,19 @@ public final class CliRunner {
             runner.instance().await();
         }
     }
+
+    public static void cli(final String... args) {
+        try (final var container = ConfiguringContainer.of()
+                        .register(new FusionModule() {
+                            @Override
+                            public Stream<FusionBean<?>> beans() {
+                                return Stream.of(new ProvidedInstanceBean<>(
+                                        DefaultScoped.class, Args.class, () -> new Args(List.of(args))));
+                            }
+                        })
+                        .start();
+                final var runner = container.lookup(CliAwaiter.class)) {
+            runner.instance().await();
+        }
+    }
 }

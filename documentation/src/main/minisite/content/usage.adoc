@@ -8,8 +8,9 @@
 
 The idea behind `gatlingbenchmarks.gatling.yupiik.io` CRD is to define a pipeline of self contained `Job` defined as Yupiik BundleBee alveolus.
 
-IMPORTANT: as of today it is important is is self contained since the cleanup only handles `Job`. Technically we can use Yupiik BundleBee to know what to delete but the issue is that the operator will likely miss some `Role` (permissions) so we limit ourselves to jobs for now.
-If you deploy anything else, it will be deployed but not undeployed so you can need to have some garbage collection mechanism.
+IMPORTANT: as of today it is important is is self contained since the cleanup only handles `Job` and `Service`.
+Technically we can use Yupiik BundleBee to know what to delete but the issue is that the operator will likely miss some `Role` (permissions) so we limit ourselves to jobs for now.
+If you deploy anything else, it will be deployed but not un-deployed so you can need to have some garbage collection mechanism.
 
 == Sample
 
@@ -81,7 +82,7 @@ One way to do that is to use a custom entrypoint and inject the scripts either d
             base64 -d > /tmp/simulation.jar &&
             unzip -d /opt/gatling/user-files/simulations /tmp/simulation.jar &&
             rm /tmp/simulation.jar &&
-          java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample --reports-folder /tmp/reports
+          java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample --reports-folder /tmp/reports --no-reports
         "
       ]
     generic-job.env: |
@@ -203,7 +204,7 @@ generic-job.command: >
         base64 -d > /tmp/gatling-sample.jar &&
         unzip -d /opt/gatling/user-files/simulations /tmp/gatling-sample.jar &&
         rm /tmp/gatling-sample.jar &&
-      java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample
+      java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample  --no-reports
     "
   ]
 ----
@@ -282,7 +283,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
               <!-- we force a more recent JDK so we have some JPMS side effect we fix this way -->
               <jvmFlag>--add-opens</jvmFlag>
               <jvmFlag>java.base/java.lang=ALL-UNNAMED</jvmFlag>
-            </jvmFlags>
+            </jvmFlags>ge
             <environment>
               <LANG>en_US.UTF-8</LANG>
             </environment>
@@ -301,6 +302,7 @@ TIP: refer to the link:https://github.com/GoogleContainerTools/jib/tree/master/j
 
 NOTE: setting the `--reports-folder` will store the `simulation.log` file we can use to aggregate results in `$folder/$simulationLowercaseSimpleName-$yyyyMMddHHmmssSSS/simulation.log` location.
 This one can be big depending your scenario so ensure to give enough space to the volume where you do store it (or drop the security contexts to enable to write in container filesystem even if not neat).
+The `--no-reports` avoids to generate the HTML report in this container.
 
 This packaging works for multiple simulations (in the same image/project) and you just need to pass `--simulation $yourclass` and a report folder (` --results-folder /gatling/report` for example) as argument to the container:
 [source,properties]
@@ -314,9 +316,25 @@ generic-job.podSecurityContext: '{}'
 generic-job.args: >
   [
     "--simulation", "io.yupiik.gatling.Sample",
-    "--results-folder", "/gatling/reports"
+    "--results-folder", "/gatling/reports",
+    " --no-reports"
   ]
 ----
 
 NOTE: in practise you should use `generic-job.volumes` and `generic-job.volumeMounts` to use an ephemeral volume or an `emptyDir` (depending your cluster) and bind it on `/gatling/reports`.
 Gatling can also need a few other folder as writables so as empty directories/volumes.
+
+== Report
+
+As we just saw the CRD enables you to define a pipeline.
+To get report when you have multiple injectors (or a single one but when you have a single one you can just generate the report locally), you need to send all reports to a single instance and aggregate it.
+You can see the pipeline as a very simple "map/reduce": the `bench` command does the "map" and a reporter pod will do the reduce.
+
+Here are some built-in commands enabling to do it:
+
+* `start-report-server`: spawn a light HTTP server other pods can use to send reports. Important: it is intended to be used with `gatling-operator#generic-service#fire-and-forget` alveolus to have a stable name to configure to other commands,
+* `gatling-report` can be injected after a gatling execution (after `java -cp ... io.gatling.app.Gatling ...`, often as ``java -cp ... io.gatling.app.Gatling ...` ; java -cp .... io.yupiik.fusion.framework.api.main.Launcher gatling-report ...`), it will send the local reports to the HTTP server previous spawn,
+* `do-generate-report`: call the HTTP server to notify it that no more report will be generated, it will block until the report is generated.
+
+NOTE: if you do setup gatling with OpenTelemetry (collector or not) and collect data this way (logs, metrics etc), you do not need this part at all.
+

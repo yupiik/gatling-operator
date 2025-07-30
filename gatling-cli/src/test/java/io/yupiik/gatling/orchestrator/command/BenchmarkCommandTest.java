@@ -78,7 +78,7 @@ class BenchmarkCommandTest {
                         new Kubernetes.Request(
                                 "POST",
                                 URI.create(
-                                        "/api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
+                                        "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                 """
                                         {
                                           "apiVersion": "batch/v1",
@@ -172,7 +172,7 @@ class BenchmarkCommandTest {
                         new Kubernetes.Request(
                                 "POST",
                                 URI.create(
-                                        "/api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
+                                        "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                 """
                                         {
                                           "apiVersion": "batch/v1",
@@ -258,7 +258,7 @@ class BenchmarkCommandTest {
                         new Kubernetes.Request(
                                 "POST",
                                 URI.create(
-                                        "/api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
+                                        "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                 """
                                         {
                                           "apiVersion": "batch/v1",

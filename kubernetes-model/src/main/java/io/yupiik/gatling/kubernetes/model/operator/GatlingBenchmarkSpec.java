@@ -15,7 +15,12 @@ public record GatlingBenchmarkSpec(
                         defaultValue =
                                 "java.util.List.<io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec.Alveolus>of()")
                 List<Alveolus> pipeline,
-        @Property(value = "auto-clean", documentation = "Should the CRD be deleted after the execution.")
+        @Property(
+                        value = "auto-clean",
+                        documentation =
+                                "Should the CRD be deleted after the execution. "
+                                        + "It works by fetching the jobs and services with the label `gatling.yupiik.io/parent-name` equals to the CRD (this enclosing descriptor) name so ensure to adjust your labels in placeholders. "
+                                        + "You can use implicit placeholders for that since it provides your the value as a _variable_ so you do not need to hardcode it (useful when combined with a CI/CD and/or a `CronJob`).")
                 Boolean autoClean,
         @Property( // 4h
                         value = "timeout",

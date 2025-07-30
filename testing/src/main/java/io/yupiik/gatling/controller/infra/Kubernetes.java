@@ -158,10 +158,79 @@ public class Kubernetes implements AutoCloseable {
 
         protected boolean doGet(final HttpExchange exchange) throws IOException {
             switch (exchange.getRequestURI().getPath()) {
-                case "/api/v1", "/apis/batch/v1":
-                    send(exchange, 200, "{}");
+                case "/api/v1":
+                    // just what we do use
+                    send(
+                            exchange,
+                            200,
+                            """
+                            {
+                              "kind": "APIResourceList",
+                              "apiVersion": "v1",
+                              "groupVersion": "v1",
+                              "resources": [
+                                {
+                                  "name": "jobs",
+                                  "singularName": "",
+                                  "namespaced": true,
+                                  "kind": "Pod",
+                                  "verbs": [
+                                    "create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"
+                                  ]
+                                },
+                                {
+                                  "name": "services",
+                                  "singularName": "",
+                                  "namespaced": true,
+                                  "kind": "Service",
+                                  "verbs": [
+                                    "create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"
+                                  ]
+                                }
+                              ]
+                            }""");
                     return false;
-                case "/api/v1/namespaces/default/jobs/orchestrator":
+                case "/apis/batch/v1":
+                    send(
+                            exchange,
+                            200,
+                            """
+                            {
+                              "kind": "APIResourceList",
+                              "apiVersion": "v1",
+                              "groupVersion": "batch/v1",
+                              "resources": [
+                                {
+                                  "name": "jobs",
+                                  "singularName": "",
+                                  "namespaced": true,
+                                  "kind": "Job",
+                                  "verbs": [
+                                    "create",
+                                    "delete",
+                                    "deletecollection",
+                                    "get",
+                                    "list",
+                                    "patch",
+                                    "update",
+                                    "watch"
+                                  ]
+                                },
+                                {
+                                  "name": "jobs/status",
+                                  "singularName": "",
+                                  "namespaced": true,
+                                  "kind": "Job",
+                                  "verbs": [
+                                    "get",
+                                    "patch",
+                                    "update"
+                                  ]
+                                }
+                              ]
+                            }""");
+                    return false;
+                case "/apis/batch/v1/namespaces/default/jobs/orchestrator":
                     send(exchange, 404, "{}");
                     return false;
                 case "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks":
@@ -190,7 +259,10 @@ public class Kubernetes implements AutoCloseable {
 
         protected boolean doPost(final HttpExchange exchange) throws IOException {
             switch (exchange.getRequestURI().getPath()) {
-                case "/api/v1/namespaces/default/jobs":
+                case "/apis/batch/v1/namespaces/default/jobs":
+                    send(exchange, 201, "{}");
+                    return false;
+                case "/api/v1/namespaces/default/services":
                     send(exchange, 201, "{}");
                     return false;
                 default:

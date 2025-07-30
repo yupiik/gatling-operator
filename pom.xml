@@ -89,9 +89,12 @@
         <version>3.5.3</version>
         <configuration>
           <trimStackTrace>false</trimStackTrace>
+          <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
           <systemPropertyVariables>
             <java.util.logging.manager>io.yupiik.logging.jul.YupiikLogManager</java.util.logging.manager>
             <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
+            <gatling.ssl.useOpenSsl>false</gatling.ssl.useOpenSsl>
+            <gatling.data.enableAnalytics>false</gatling.data.enableAnalytics>
           </systemPropertyVariables>
         </configuration>
       </plugin>
@@ -192,7 +195,7 @@
         <configuration>
           <java>
             <palantirJavaFormat>
-              <version>2.56.0</version>
+              <version>2.57.0</version>
             </palantirJavaFormat>
             <removeUnusedImports />
             <!-- todo
@@ -255,8 +258,15 @@
               <jvmFlag>-Dcom.sun.jndi.ldap.object.trustSerialData=false</jvmFlag>
               <jvmFlag>-Dorg.apache.webbeans.spi.deployer.skipValidations=true</jvmFlag>
               <jvmFlag>-Dapp.build.timestamp=${maven.build.timestamp}</jvmFlag>
+              <!-- ensure a kill from k8s is respected -->
+              <jvmFlag>-Dfusion.launcher.useHook=true</jvmFlag>
               <!-- let's make it long enough: 2 days -->
               <jvmFlag>-Dbundlebee.awaiter.retryInterval=172800000</jvmFlag>
+              <!-- for gatling -->
+              <jvmFlag>--add-opens</jvmFlag>
+              <jvmFlag>java.base/java.lang=ALL-UNNAMED</jvmFlag>
+              <jvmFlag>-Dgatling.ssl.useOpenSsl=false</jvmFlag>
+              <jvmFlag>-Dgatling.data.enableAnalytics=false</jvmFlag>
             </jvmFlags>
             <environment>
               <LANG>en_US.UTF-8</LANG>

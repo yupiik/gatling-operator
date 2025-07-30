@@ -11,6 +11,10 @@
   <name>Gatling Operator :: CLI</name>
   <description>Benchmark orchestrator, it is the _supervisor_ Pod of the overall benchmark execution.</description>
 
+  <properties>
+    <gatling.version>3.14.3</gatling.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>io.yupiik.fusion</groupId>
@@ -28,6 +32,12 @@
       <groupId>io.yupiik.fusion</groupId>
       <artifactId>fusion-cli</artifactId>
       <version>${yupiik-fusion.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.gatling</groupId>
+      <artifactId>gatling-charts</artifactId>
+      <version>${gatling.version}</version>
     </dependency>
 
     <dependency>

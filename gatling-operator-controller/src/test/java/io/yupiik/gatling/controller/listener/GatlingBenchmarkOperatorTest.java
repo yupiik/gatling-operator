@@ -32,7 +32,7 @@ class GatlingBenchmarkOperatorTest {
                         }""");
         final var request = kubernetes.requests(1).getFirst();
         assertEquals(
-                "POST /api/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict",
+                "POST /apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict",
                 request.requestLine());
         request.assertJsonPayloadEquals(
                 """
@@ -157,7 +157,7 @@ class GatlingBenchmarkOperatorTest {
                 new Kubernetes.CrdHandler() {
                     @Override
                     protected boolean doGet(final HttpExchange exchange) throws IOException {
-                        if (exchange.getRequestURI().getPath().equals("/api/v1/namespaces/default/jobs")) {
+                        if (exchange.getRequestURI().getPath().equals("/apis/batch/v1/namespaces/default/jobs")) {
                             send(
                                     exchange,
                                     200,
@@ -169,6 +169,17 @@ class GatlingBenchmarkOperatorTest {
                                                 {"metadata":{"name":"j1"}},
                                                 {"metadata":{"name":"j2"}}
                                               ]
+                                            }
+                                            """);
+                            return false;
+                        }
+                        if (exchange.getRequestURI().getPath().equals("/api/v1/namespaces/default/services")) {
+                            send(
+                                    exchange,
+                                    200,
+                                    """
+                                            {
+                                              "items": []
                                             }
                                             """);
                             return false;
@@ -192,27 +203,29 @@ class GatlingBenchmarkOperatorTest {
                                         }
                                       }
                                     }""");
-                    kubernetes.requests(3);
+                    kubernetes.requests(4);
                 });
         final var request = kubernetes.requests(0);
         assertEquals(
                 """
-                        GET /api/v1/namespaces/default/jobs?limit=500&labelSelector=gatling.yupiik.io/parent-name=bench-1
-
-                        DELETE /api/v1/namespaces/default/jobs/j1
+                        DELETE /apis/batch/v1/namespaces/default/jobs/j1
                         {
                           "kind": "DeleteOptions",
                           "apiVersion": "v1",
                           "propagationPolicy": "Background",
                           "gracePeriodSeconds": 60
                         }
-                        DELETE /api/v1/namespaces/default/jobs/j2
+                        DELETE /apis/batch/v1/namespaces/default/jobs/j2
                         {
                           "kind": "DeleteOptions",
                           "apiVersion": "v1",
                           "propagationPolicy": "Background",
                           "gracePeriodSeconds": 60
-                        }""",
-                request.stream().map(Kubernetes.Request::asString).collect(joining("\n")));
+                        }
+                        GET /api/v1/namespaces/default/services?limit=500&labelSelector=gatling.yupiik.io/parent-name=bench-1
+
+                        GET /apis/batch/v1/namespaces/default/jobs?limit=500&labelSelector=gatling.yupiik.io/parent-name=bench-1
+                        """,
+                request.stream().map(Kubernetes.Request::asString).sorted().collect(joining("\n")));
     }
 }

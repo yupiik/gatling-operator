@@ -18,7 +18,11 @@ public class ReadyAwaiter {
         kubernetes.requests(2).clear(); // await watch is done
 
         // ensure prefetch of resources is done - and avoid to interfere with the test
-        container.select(ApiPreloader.class).get().getBaseUrls().put("jobs", "/api/v1/namespaces/${namespace}/jobs");
+        container
+                .select(ApiPreloader.class)
+                .get()
+                .getBaseUrls()
+                .put("jobs", "/apis/batch/v1/namespaces/${namespace}/jobs");
         kubernetes.requests(1).clear(); // await watch is done
     }
 }

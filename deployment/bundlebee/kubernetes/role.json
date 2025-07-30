@@ -10,6 +10,20 @@
   "rules": [
     {
       "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "services"
+      ],
+      "verbs": [
+        "create",
+        "list",
+        "get",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
         "batch"
       ],
       "resources": [

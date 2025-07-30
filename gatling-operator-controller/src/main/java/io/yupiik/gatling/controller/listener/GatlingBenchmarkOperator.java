@@ -10,9 +10,11 @@ import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 import static java.util.Locale.ROOT;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.logging.Level.SEVERE;
+import static java.util.logging.Level.WARNING;
 import static java.util.stream.Collectors.toMap;
 
 import io.yupiik.fusion.framework.api.main.Launcher;
@@ -24,7 +26,7 @@ import io.yupiik.fusion.kubernetes.client.KubernetesClient;
 import io.yupiik.gatling.controller.bundlebee.BundleBeeService;
 import io.yupiik.gatling.controller.configuration.GatlingOperatorConfiguration;
 import io.yupiik.gatling.controller.model.GatlingBenchmark;
-import io.yupiik.gatling.controller.model.Jobs;
+import io.yupiik.gatling.controller.model.GenericItems;
 import io.yupiik.gatling.controller.version.VersionHolder;
 import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec;
 import io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkStatus;
@@ -99,6 +101,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     private final KubernetesClient kubernetes;
     private final JsonMapper json;
     private final String baseJobsUri;
+    private final String baseServicesUri;
     private final String baseUri;
     private final BundleBeeService deployer;
     private final Clock clock;
@@ -115,6 +118,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         this.kubernetes = null;
         this.json = null;
         this.baseJobsUri = null;
+        this.baseServicesUri = null;
         this.baseUri = null;
         this.deployer = null;
         this.clock = null;
@@ -143,7 +147,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
         this.configuration = configuration;
 
         final var namespace = client.namespace().orElse("default");
-        this.baseJobsUri = "https://kubernetes.api/api/v1/namespaces/" + namespace + "/jobs";
+        this.baseJobsUri = "https://kubernetes.api/apis/batch/v1/namespaces/" + namespace + "/jobs";
+        this.baseServicesUri = "https://kubernetes.api/api/v1/namespaces/" + namespace + "/services";
         this.baseUri = "https://kubernetes.api/apis/" + GROUP + '/' + VERSION + "/namespaces/" + namespace + "/"
                 + NAME.toLowerCase(ROOT) + 's';
     }
@@ -193,15 +198,14 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                     // do not remove there if it is a deletion
                     trigger.whenComplete((ok, ko) -> {
                         if (ko != null) {
-                            pending.put(
+                            // will be removed from pending by setStatus()
+                            setStatus(
                                     resource.metadata().name(),
-                                    setStatus(
-                                            resource.metadata().name(),
-                                            new GatlingBenchmarkStatus(
-                                                    FAILED,
-                                                    new GatlingBenchmarkStatus.Message(
-                                                            "Failed when deploying orchestrator", ko.getMessage()),
-                                                    Integer.MIN_VALUE)));
+                                    new GatlingBenchmarkStatus(
+                                            FAILED,
+                                            new GatlingBenchmarkStatus.Message(
+                                                    "Failed when deploying orchestrator", ko.getMessage()),
+                                            Integer.MIN_VALUE));
                         } else {
                             pending.remove(resource.metadata().name(), trigger);
                         }
@@ -245,22 +249,27 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     // todo: add retries?
     private CompletionStage<?> setStatus(final String name, final GatlingBenchmarkStatus status) {
         final var uri = URI.create(baseUri + '/' + name + "/status");
-        final var payload = "{\"status\":" + json.toString(status) + "}";
-        final var promise = kubernetes
-                .sendAsync(
-                        HttpRequest.newBuilder()
-                                .method("PATCH", HttpRequest.BodyPublishers.ofString(payload, UTF_8))
-                                .uri(uri)
-                                .header("content-type", "application/merge-patch+json")
-                                .build(),
-                        ofString())
-                .thenAccept(res -> {
-                    if (res.statusCode() > 299) {
-                        logger.warning(() -> "Can't update status of benchmark '" + name + "': " + res.body());
-                    }
-                });
-        promise.whenComplete((ok, ko) -> pending.remove(name, promise));
-        return promise;
+        try {
+            final var payload = "{\"status\":" + json.toString(status) + "}";
+            return kubernetes
+                    .sendAsync(
+                            HttpRequest.newBuilder()
+                                    .method("PATCH", HttpRequest.BodyPublishers.ofString(payload, UTF_8))
+                                    .uri(uri)
+                                    .header("content-type", "application/merge-patch+json")
+                                    .build(),
+                            ofString())
+                    .whenComplete((ok, ko) -> {
+                        if (ok == null || ok.statusCode() > 299) {
+                            logger.warning(() -> "Can't update status of benchmark '" + name + "': "
+                                    + (ok == null ? "?" : ok.body()));
+                        }
+                        pending.remove(name);
+                    });
+        } catch (final RuntimeException re) {
+            logger.log(WARNING, re, () -> "Can't update status of '" + name + "' to " + status);
+            throw new IllegalStateException(re);
+        }
     }
 
     // trigger is as "simple" as launching an orchestrator
@@ -330,12 +339,12 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                                     final var idx = index.getAndIncrement();
                                     final var prefix = "--spec-pipeline-" + idx + "-";
                                     return Stream.of(
-                                            prefix + "name", it.name(),
-                                            prefix + "range", Integer.toString(it.range()),
+                                            prefix + "name",
+                                            it.name(),
+                                            prefix + "range",
+                                            Integer.toString(it.range()),
                                             prefix + "placeholders",
-                                                    it.placeholders() == null
-                                                            ? ""
-                                                            : toPlaceholdersCliValue(it.placeholders()));
+                                            it.placeholders() == null ? "" : toPlaceholdersCliValue(it.placeholders()));
                                 }))
                 .flatMap(it -> it);
     }
@@ -376,12 +385,18 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     // 3. delete post pods
     // -> they are all jobs sharing the labels xxxxx
     // note that we do not use delete collection to not require this permission but just a plain delete for now
+    //
+    // we do it by concurrently deleting all related jobs but we also handle services for reporter command
     private CompletableFuture<Void> doDelete(final GatlingBenchmark resource) {
+        return allOf(doDelete(baseJobsUri, resource), doDelete(baseServicesUri, resource));
+    }
+
+    private CompletableFuture<Void> doDelete(final String base, final GatlingBenchmark resource) {
         return kubernetes
                 .sendAsync(
                         HttpRequest.newBuilder()
                                 .GET()
-                                .uri(URI.create(baseJobsUri + "?limit=500&"
+                                .uri(URI.create(base + "?limit=500&"
                                         + // unlikely we get > 500 jobs, ie ~500 gatling instances + orchestrator + post
                                         // jobs if any
                                         "labelSelector="
@@ -393,23 +408,24 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                         ofString())
                 .thenCompose(res -> {
                     if (res.statusCode() != 200) {
-                        logger.severe(() ->
-                                "Can't cleanup '" + resource.metadata().name() + "' CRD, check all jobs with the label "
-                                        + CRD_LABEL + " matching the CRD name");
+                        logger.severe(
+                                () -> "Can't cleanup '" + resource.metadata().name() + "' CRD, check all '" + base
+                                        + "' with the label " + CRD_LABEL + " matching the CRD name");
                         return completedFuture(null);
                     }
 
-                    final var jobs = json.fromString(Jobs.class, res.body());
-                    if (jobs.items().isEmpty()) {
-                        logger.info(() ->
-                                "No job to clean up for '" + resource.metadata().name() + "'");
+                    final var wrapper = json.fromString(GenericItems.class, res.body());
+                    if (wrapper.items().isEmpty()) {
+                        logger.info(() -> "No '" + base + "' to clean up for '"
+                                + resource.metadata().name() + "'");
                         return completedFuture(null);
                     }
 
-                    logger.info(() -> "Deleting jobs related to '"
-                            + resource.metadata().name() + "': #" + jobs.items().size());
+                    logger.info(() -> "Deleting '" + base + "' related to '"
+                            + resource.metadata().name() + "': #"
+                            + wrapper.items().size());
 
-                    final var all = jobs.items().stream()
+                    final var all = wrapper.items().stream()
                             .map(it -> kubernetes
                                     .sendAsync(
                                             HttpRequest.newBuilder()
@@ -417,7 +433,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                                                             "DELETE",
                                                             HttpRequest.BodyPublishers.ofString(
                                                                     "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Background\",\"gracePeriodSeconds\":60}"))
-                                                    .uri(URI.create(baseJobsUri + "/"
+                                                    .uri(URI.create(base + "/"
                                                             + it.metadata().name()))
                                                     .build(),
                                             ofString())
