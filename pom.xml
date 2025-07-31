@@ -43,6 +43,7 @@
       <groupId>io.yupiik.logging</groupId>
       <artifactId>yupiik-logging-jul</artifactId>
       <version>${yupiik-logging.version}</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>

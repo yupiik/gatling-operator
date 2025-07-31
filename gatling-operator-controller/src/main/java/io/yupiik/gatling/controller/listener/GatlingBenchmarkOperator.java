@@ -48,6 +48,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -105,7 +106,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
     // simple and likely sufficient (even if not 100% accurate)
     // way to avoid to delete too early or to exit in the middle of a create
-    private final Map<String, CompletionStage<?>> pending = new HashMap<>();
+    // todo: rework that part
+    private final Map<String, CompletionStage<?>> pending = new ConcurrentHashMap<>();
 
     // for subclassing/proxy
     protected GatlingBenchmarkOperator() {
@@ -194,6 +196,11 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                     // do not remove there if it is a deletion
                     trigger.whenComplete((ok, ko) -> {
                         if (ko != null) {
+                            logger.log(
+                                    SEVERE,
+                                    ko,
+                                    () -> "An error occurred triggering '"
+                                            + resource.metadata().name() + "': " + ko.getMessage());
                             // will be removed from pending by setStatus()
                             setStatus(
                                     resource.metadata().name(),
@@ -271,7 +278,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     // trigger is as "simple" as launching an orchestrator
     private CompletionStage<?> trigger(final GatlingBenchmark benchmark) {
         return deployer.deploy(
-                "gatling-operator#generic-job#awaited",
+                "gatling-operator#generic-job#fire-and-forget",
                 benchmark.spec().timeout() == null
                         ? 14_400_000L
                         : benchmark.spec().timeout(),
@@ -284,24 +291,40 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 new HashMap<>(configuration.orchestrator() == null ? Map.of() : configuration.orchestrator());
         placeholders.put(
                 "generic-job.name", computeOrchestratorName(benchmark.metadata().name()));
-        placeholders.put("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION.toLowerCase(Locale.ROOT));
-        placeholders.put(
+        placeholders.putIfAbsent("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION);
+        placeholders.putIfAbsent(
                 "generic-job.imagePullPolicy", VersionHolder.VERSION.endsWith("-SNAPSHOT") ? "Always" : "IfNotPresent");
-        placeholders.put( // todo merge if existing
+        placeholders.putIfAbsent( // todo merge if existing
                 "generic-job.env",
-                json.toString(List.of(Map.of(
-                        "name", "K8S_POD_IP", "valueFrom", Map.of("fieldRef", Map.of("fieldPath", "status.podIP"))))));
-        placeholders.put(
+                json.toString(
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "K8S_POD_IP",
+                                        "valueFrom",
+                                        Map.of("fieldRef", Map.of("fieldPath", "status.podIP"))),
+                                Map.of(
+                                        "name",
+                                        "_JAVA_OPTIONS",
+                                        "value",
+                                        "-XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=75 -Djdk.httpclient.keepalive.timeout=30 -Dsun.net.inetaddr.ttl=60 -Dio.yupiik.logging.jul.handler.AsyncHandler.formatter=json"))));
+        placeholders.put( // todo: merge with config?
                 "generic-job.labels",
                 json.toString(Map.of(
                         CRD_LABEL, benchmark.metadata().name(),
                         START_LABEL, Long.toString(clock.instant().toEpochMilli()))));
-        placeholders.putIfAbsent( // else use overriden one
+        placeholders.put( // else use overriden one
                 "generic-job.command",
                 json.toString(List.of( // assume jib
                         "java",
+                        "-XX:+ExitOnOutOfMemoryError",
+                        "-XX:MaxRAMPercentage=75",
+                        "-Djdk.httpclient.keepalive.timeout=30",
+                        "-Dsun.net.inetaddr.ttl=60",
+                        "-Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager",
+                        "-Dio.yupiik.logging.jul.handler.AsyncHandler.formatter=json",
                         "-cp",
-                        "@/opt/yupiik/gatling-operator/gatling-operator-controller/jib-classpath-file",
+                        "@/opt/yupiik/gatling-operator/gatling-cli/jib-classpath-file",
                         Launcher.class.getName())));
         placeholders.put(
                 "generic-job.args",

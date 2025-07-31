@@ -20,6 +20,7 @@ import javax.enterprise.inject.spi.ProcessBeanAttributes;
 // until bundlebee is fusion native we do this bridge
 @ApplicationScoped
 public class BundleBeeBeans {
+    // todo: prescan beans and just register it to avoid scanning overhead (mainly the mem)
     @Bean
     @ApplicationScoped
     public SeContainer cdi(final FusionBundleBeeHttpClient httpClient) {

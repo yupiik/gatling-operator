@@ -11,7 +11,7 @@ import java.util.Map;
 public record GatlingBenchmarkSpec(
         @Property(
                         documentation =
-                                "Steps to execute. Default available alveolus is `gatling-operator#injector` - ensure to configure its placeholders to make it effective.",
+                                "Steps to execute. Default available alveolus is `gatling-operator#generic-job#awaited` - ensure to configure its placeholders to make it effective.",
                         defaultValue =
                                 "java.util.List.<io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec.Alveolus>of()")
                 List<Alveolus> pipeline,

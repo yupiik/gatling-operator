@@ -8,6 +8,7 @@
     }
   },
   "data": {
-    "_JAVA_OPTIONS": "-Dio.yupiik.logging.jul.handler.AsyncHandler.formatter=json"
+    "_JAVA_OPTIONS": "{{jvmArgs:--Djdk.httpclient.keepalive.timeout=30 -Dsun.net.inetaddr.ttl=60 -XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=75 -Dio.yupiik.logging.jul.handler.AsyncHandler.formatter=json}}",
+    "GATLING_OPERATOR_ORCHESTRATOR": "{{defaultOrchestratorPlaceholders:-generic-job.imagePullPolicy=IfNotPresent}}"
   }
 }

@@ -79,7 +79,10 @@ public class BenchmarkCommand implements Runnable {
         if (!iterator.hasNext()) {
             return completedFuture(null);
         }
+
         final var range = iterator.next();
+        logger.info(() -> "Running range: #" + range.getKey() + " (#" + range.getValue() + " jobs)");
+
         final var baseImplicitPlaceholders = Map.of(
                 "gatling-operator.implicit.version",
                 VersionHolder.VERSION,

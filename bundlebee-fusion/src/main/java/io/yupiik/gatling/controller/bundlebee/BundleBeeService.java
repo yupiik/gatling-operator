@@ -62,7 +62,7 @@ public class BundleBeeService {
                             null,
                             (ctx, desc) -> kubeClient.apply(desc.getContent(), desc.getExtension(), Map.of(), true),
                             cache,
-                            desc -> conditionAwaiter.await("deploy", desc, scheduledExecutorService, awaitTimeout),
+                            desc -> conditionAwaiter.await("apply", desc, scheduledExecutorService, awaitTimeout),
                             "deployed",
                             id))
                     .whenComplete((ok, ko) ->
