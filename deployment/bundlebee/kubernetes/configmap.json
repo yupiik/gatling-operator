@@ -7,5 +7,7 @@
       "app": "gatling-operator"
     }
   },
-  "data": {}
+  "data": {
+    "_JAVA_OPTIONS": "-Dio.yupiik.logging.jul.handler.AsyncHandler.formatter=json"
+  }
 }

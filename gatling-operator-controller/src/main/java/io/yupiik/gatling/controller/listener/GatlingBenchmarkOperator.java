@@ -65,12 +65,8 @@ import java.util.stream.Stream;
         shortNames = {"gb"},
         spec = GatlingBenchmarkSpec.class,
         status = GatlingBenchmarkStatus.class,
-        additionalPrinterColumns = {
-            @PrinterColumn(name = "Image", type = "string", jsonPath = ".spec.gatling.image"),
-            @PrinterColumn(name = "Status", type = "string", jsonPath = ".status.status")
-        },
+        additionalPrinterColumns = {@PrinterColumn(name = "Status", type = "string", jsonPath = ".status.status")},
         selectableFields = {
-            ".spec.gatling.image",
             ".status.status",
         },
         description =

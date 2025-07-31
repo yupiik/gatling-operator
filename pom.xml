@@ -172,7 +172,7 @@
         <configuration>
           <outputType>FILE</outputType>
           <failOnInvalidDescription>true</failOnInvalidDescription>
-          <ignoredPlaceholders>basedir,deployment.environment,bundlebee-base64-file:.*,bundlebee-digest:.*</ignoredPlaceholders>
+          <ignoredPlaceholders>project.*,basedir,deployment.environment,bundlebee-base64-file:.*,bundlebee-digest:.*</ignoredPlaceholders>
         </configuration>
       </plugin>
       <plugin>

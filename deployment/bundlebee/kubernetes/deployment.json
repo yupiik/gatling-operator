@@ -41,8 +41,8 @@
         "containers": [
           {
             "name": "gatling-operator",
-            "image": "{{image.repository:-yupiik/gatling-operator}}:{{image.tag:-latest}}",
-            "imagePullPolicy": "{{image.pullPolicy:-Always}}",
+            "image": "{{image.repository:-yupiik/gatling-operator-controller}}:{{image.tag:-{{project.version:-latest}}}}",
+            "imagePullPolicy": "{{image.pullPolicy:-IfNotPresent}}",
             "securityContext": {
               "runAsNonRoot": true,
               "runAsUser": {{security.id:-10000}},

@@ -82,6 +82,9 @@
               <goal>apply</goal>
             </goals>
             <phase>none</phase>
+            <configuration>
+              <kubeNamespace>default</kubeNamespace>
+            </configuration>
           </execution>
         </executions>
       </plugin>
