@@ -1,5 +1,7 @@
 package io.yupiik.gatling.controller.bundlebee;
 
+import static java.util.Optional.ofNullable;
+
 import io.yupiik.bundlebee.core.kube.KubeClient;
 import io.yupiik.bundlebee.core.lang.SubstitutorProducer;
 import io.yupiik.bundlebee.core.service.AlveolusHandler;
@@ -8,6 +10,7 @@ import io.yupiik.bundlebee.core.service.ConditionAwaiter;
 import io.yupiik.fusion.framework.api.scope.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -54,22 +57,67 @@ public class BundleBeeService {
         final var id = Long.toString(this.id.incrementAndGet());
         substitutorProducer.getByIdContextualPlaceholders().put(id, placeholders);
         try {
+            final var patchedContents = new ConcurrentHashMap<String, String>();
             return resolve(alveolus)
                     .thenCompose(it -> handler.executeOnceOnAlveolus(
                             "Deploying",
                             it.getManifest(),
                             it.getAlveolus(),
                             null,
-                            (ctx, desc) -> kubeClient.apply(desc.getContent(), desc.getExtension(), Map.of(), true),
+                            (ctx, desc) -> {
+                                var content = desc.getContent();
+                                // since we deploy with bundlebee a bundlebee deployed alveolus (this layer then bench
+                                // command)
+                                // escaping can be broken cause '\n' means something particular in JSON and properties
+                                // formats
+                                // so we catch up there when Substitutor broke it by removing only one '\' when escaping
+                                // lead to 2
+                                int idx = 0;
+                                final var marker = "\\\\\\{{";
+                                while (idx >= 0) {
+                                    // 3 '\' is not possible there (in JSON) so we add one cause it means we did break
+                                    // it with Substitutor
+                                    final var next = content.indexOf(marker, idx);
+                                    if (next < 0) {
+                                        break;
+                                    }
+                                    if (next > 0 && content.charAt(next - 1) != '\\') {
+                                        content = content.substring(0, next) + content.substring(next + 1);
+                                    }
+                                    idx = next
+                                            + marker.length()
+                                            +
+                                            // at least end of the value, "}}" so doesnt hurt and enable to handle the
+                                            // case we prepend a '\'
+                                            2;
+                                }
+                                if (content != desc.getContent()) { // ref equal is faster and ok there
+                                    patchedContents.put(desc.getContent(), content);
+                                }
+                                return kubeClient.apply(content, desc.getExtension(), Map.of(), true);
+                            },
                             cache,
-                            desc -> conditionAwaiter.await("apply", desc, scheduledExecutorService, awaitTimeout),
+                            desc -> conditionAwaiter.await(
+                                    "apply",
+                                    ofNullable(patchedContents.get(desc.getContent()))
+                                            .map(c -> new AlveolusHandler.LoadedDescriptor(
+                                                    desc.getConfiguration(),
+                                                    c,
+                                                    desc.getExtension(),
+                                                    desc.getUri(),
+                                                    desc.getResource()))
+                                            .orElse(desc),
+                                    scheduledExecutorService,
+                                    awaitTimeout),
                             "deployed",
                             id))
                     .whenComplete((ok, ko) ->
                             substitutorProducer.getByIdContextualPlaceholders().remove(id));
         } catch (final RuntimeException re) {
             substitutorProducer.getByIdContextualPlaceholders().remove(id);
-            throw re;
+            final var promise = new CompletableFuture<Void>();
+            promise.completeExceptionally(re);
+            return promise;
         }
     }
 }

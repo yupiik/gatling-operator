@@ -10,6 +10,7 @@ import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 import static java.util.Locale.ROOT;
+import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -190,29 +191,35 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     @Override
     public void onAdd(final GatlingBenchmark resource) {
         try {
-            pending.computeIfAbsent(resource.metadata().name(), k -> {
+            pending.compute(resource.metadata().name(), (k, previous) -> {
                 try {
-                    final var trigger = trigger(resource);
+                    final var trigger = ofNullable(previous)
+                            .orElseGet(() -> completedFuture(null))
+                            .exceptionally(e -> null)
+                            .thenCompose(ignored -> trigger(resource));
                     // do not remove there if it is a deletion
-                    trigger.whenComplete((ok, ko) -> {
-                        if (ko != null) {
-                            logger.log(
-                                    SEVERE,
-                                    ko,
-                                    () -> "An error occurred triggering '"
-                                            + resource.metadata().name() + "': " + ko.getMessage());
-                            // will be removed from pending by setStatus()
-                            setStatus(
-                                    resource.metadata().name(),
-                                    new GatlingBenchmarkStatus(
-                                            FAILED,
-                                            new GatlingBenchmarkStatus.Message(
-                                                    "Failed when deploying orchestrator", ko.getMessage()),
-                                            Integer.MIN_VALUE));
-                        } else {
-                            pending.remove(resource.metadata().name(), trigger);
-                        }
-                    });
+                    trigger.whenCompleteAsync(
+                            (ok, ko) -> {
+                                if (ko != null) {
+                                    logger.log(
+                                            SEVERE,
+                                            ko,
+                                            () -> "An error occurred triggering '"
+                                                    + resource.metadata().name() + "': " + ko.getMessage());
+                                    // will be removed from pending by setStatus()
+                                    setStatus(
+                                            resource.metadata().name(),
+                                            trigger,
+                                            new GatlingBenchmarkStatus(
+                                                    FAILED,
+                                                    new GatlingBenchmarkStatus.Message(
+                                                            "Failed when deploying orchestrator", ko.getMessage()),
+                                                    Integer.MIN_VALUE));
+                                } else {
+                                    pending.remove(resource.metadata().name(), trigger);
+                                }
+                            },
+                            scheduledExecutorService);
                     return trigger;
                 } catch (final RuntimeException re) {
                     pending.remove(resource.metadata().name());
@@ -226,6 +233,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                     resource.metadata().name(),
                     setStatus(
                             resource.metadata().name(),
+                            null,
                             new GatlingBenchmarkStatus(
                                     FAILED,
                                     new GatlingBenchmarkStatus.Message(
@@ -240,8 +248,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
             pending.compute(resource.metadata().name(), (k, creating) -> {
                 final var action =
                         creating == null ? doDelete(resource) : creating.thenCompose(created -> doDelete(resource));
-                action.whenComplete(
-                        (ok, ko) -> pending.remove(resource.metadata().name(), action));
+                action.whenCompleteAsync(
+                        (ok, ko) -> pending.remove(resource.metadata().name(), action), scheduledExecutorService);
                 return action;
             });
         } catch (final RuntimeException re) {
@@ -250,25 +258,27 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     }
 
     // todo: add retries?
-    private CompletionStage<?> setStatus(final String name, final GatlingBenchmarkStatus status) {
+    private CompletionStage<?> setStatus(
+            final String name, final CompletionStage<?> enclosingPromiseToRemove, final GatlingBenchmarkStatus status) {
         final var uri = URI.create(baseUri + '/' + name + "/status");
         try {
             final var payload = "{\"status\":" + json.toString(status) + "}";
-            return kubernetes
-                    .sendAsync(
-                            HttpRequest.newBuilder()
-                                    .method("PATCH", HttpRequest.BodyPublishers.ofString(payload, UTF_8))
-                                    .uri(uri)
-                                    .header("content-type", "application/merge-patch+json")
-                                    .build(),
-                            ofString())
-                    .whenComplete((ok, ko) -> {
+            final var self = kubernetes.sendAsync(
+                    HttpRequest.newBuilder()
+                            .method("PATCH", HttpRequest.BodyPublishers.ofString(payload, UTF_8))
+                            .uri(uri)
+                            .header("content-type", "application/merge-patch+json")
+                            .build(),
+                    ofString());
+            return self.whenCompleteAsync(
+                    (ok, ko) -> {
                         if (ok == null || ok.statusCode() > 299) {
                             logger.warning(() -> "Can't update status of benchmark '" + name + "': "
                                     + (ok == null ? "?" : ok.body()));
                         }
-                        pending.remove(name);
-                    });
+                        pending.remove(name, enclosingPromiseToRemove == null ? self : enclosingPromiseToRemove);
+                    },
+                    scheduledExecutorService);
         } catch (final RuntimeException re) {
             logger.log(WARNING, re, () -> "Can't update status of '" + name + "' to " + status);
             throw new IllegalStateException(re);
@@ -289,6 +299,15 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
     private Map<String, String> toPlaceholders(final GatlingBenchmark benchmark) {
         final var placeholders =
                 new HashMap<>(configuration.orchestrator() == null ? Map.of() : configuration.orchestrator());
+        // set global placeholders since they will be interpreted there - easier cause it doesn't need escaping
+        placeholders.putAll(Map.of(
+                "gatling-operator.implicit.version",
+                VersionHolder.VERSION,
+                "gatling-operator.implicit.parent-name",
+                benchmark.metadata().name(),
+                // encourage cleanup - otherwise to setup manually
+                "generic-job.labels",
+                "{\"gatling.yupiik.io/parent-name\":\"" + benchmark.metadata().name() + "\"}"));
         placeholders.put(
                 "generic-job.name", computeOrchestratorName(benchmark.metadata().name()));
         placeholders.putIfAbsent("generic-job.image", "yupiik/gatling-cli:" + VersionHolder.VERSION);

@@ -83,6 +83,7 @@ public class BenchmarkCommand implements Runnable {
         final var range = iterator.next();
         logger.info(() -> "Running range: #" + range.getKey() + " (#" + range.getValue() + " jobs)");
 
+        final var index = new AtomicInteger();
         final var baseImplicitPlaceholders = Map.of(
                 "gatling-operator.implicit.version",
                 VersionHolder.VERSION,
@@ -91,8 +92,10 @@ public class BenchmarkCommand implements Runnable {
                 "gatling-operator.implicit.parent-name",
                 name,
                 "gatling-operator.implicit.range",
-                Integer.toString(range.getKey()));
-        final var index = new AtomicInteger();
+                Integer.toString(range.getKey()),
+                // encourage cleanup - otherwise to setup manually
+                "generic-job.labels",
+                "{\"gatling.yupiik.io/parent-name\":\"" + name + "\"}");
         return setStatus(new GatlingBenchmarkStatus(RUNNING, null, range.getKey()))
                 .thenComposeAsync(
                         i -> allOf(range.getValue().stream()

@@ -16,7 +16,6 @@
         "services"
       ],
       "verbs": [
-        "create",
         "list",
         "get",
         "delete"

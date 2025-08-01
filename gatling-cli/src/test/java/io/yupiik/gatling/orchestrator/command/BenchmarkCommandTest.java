@@ -121,7 +121,9 @@ class BenchmarkCommandTest {
                                                       "kind": "Job",
                                                       "metadata": {
                                                         "name": "my-bench-0-0",
-                                                        "labels": {},
+                                                        "labels": {
+                                                          "gatling.yupiik.io/parent-name": "my-bench"
+                                                        },
                                                         "annotations": {}
                                                       },
                                                       "spec": {
@@ -129,7 +131,9 @@ class BenchmarkCommandTest {
                                                         "ttlSecondsAfterFinished": 300,
                                                         "template": {
                                                           "metadata": {
-                                                            "labels": {},
+                                                            "labels": {
+                                                              "gatling.yupiik.io/parent-name": "my-bench"
+                                                            },
                                                             "annotations": {}
                                                           },
                                                           "spec": {
@@ -213,7 +217,9 @@ class BenchmarkCommandTest {
                                                       "kind": "Job",
                                                       "metadata": {
                                                         "name": "my-bench-1-0",
-                                                        "labels": {},
+                                                        "labels": {
+                                                          "gatling.yupiik.io/parent-name": "my-bench"
+                                                        },
                                                         "annotations": {}
                                                       },
                                                       "spec": {
@@ -221,7 +227,9 @@ class BenchmarkCommandTest {
                                                         "ttlSecondsAfterFinished": 300,
                                                         "template": {
                                                           "metadata": {
-                                                            "labels": {},
+                                                            "labels": {
+                                                              "gatling.yupiik.io/parent-name": "my-bench"
+                                                            },
                                                             "annotations": {}
                                                           },
                                                           "spec": {
@@ -298,7 +306,9 @@ class BenchmarkCommandTest {
                                                       "kind": "Job",
                                                       "metadata": {
                                                         "name": "my-bench-1-1",
-                                                        "labels": {},
+                                                        "labels": {
+                                                          "gatling.yupiik.io/parent-name": "my-bench"
+                                                        },
                                                         "annotations": {}
                                                       },
                                                       "spec": {
@@ -306,7 +316,9 @@ class BenchmarkCommandTest {
                                                         "ttlSecondsAfterFinished": 300,
                                                         "template": {
                                                           "metadata": {
-                                                            "labels": {},
+                                                            "labels": {
+                                                              "gatling.yupiik.io/parent-name": "my-bench"
+                                                            },
                                                             "annotations": {}
                                                           },
                                                           "spec": {

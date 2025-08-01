@@ -43,7 +43,8 @@ public record GatlingBenchmarkSpec(
                                             + " `gatling-operator.implicit.parent-name` is set to the benchmark CRD name. "
                                             + " `gatling-operator.implicit.range` is set to range value. "
                                             + " `gatling-operator.implicit.version` is set to operator (and CLI) value. "
-                                            + " `gatling-operator.implicit.index` is set to the index within the range (`0` for the first element of the pipeline with the range `R` for example). This enables to duplicate the alveoli to scale - to have N instances of gatling for example and change the user profile depending the instance. ")
+                                            + " `gatling-operator.implicit.index` is set to the index within the range (`0` for the first element of the pipeline with the range `R` for example). This enables to duplicate the alveoli to scale - to have N instances of gatling for example and change the user profile depending the instance. "
+                                            + "Note that some are set directly in the operator (parent name for example) but some need lazy evaluation in the orchestrator, for these ones you need to escape the value otherwise it would be evaluated too early (use an anti-slash).")
                     Map<String, String> placeholders,
             @Property(
                             documentation =

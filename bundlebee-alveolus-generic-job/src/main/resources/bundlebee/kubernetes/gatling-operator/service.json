@@ -6,7 +6,7 @@
     "labels": {{generic-job.labels:- {} }}
   },
   "spec": {
-    "clusterIp": "{{generic-job.clusterIp:-None}}",
+    "clusterIP": "{{generic-job.clusterIp:-None}}",
     "selector": { "job-name": "{{generic-job.name}}" },
     "ports": {{generic-job.ports:- [ { "port": 8080, "targetPort": 8080 } ] }}
   }

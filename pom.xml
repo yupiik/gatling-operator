@@ -261,8 +261,6 @@
               <jvmFlag>-Dapp.build.timestamp=${maven.build.timestamp}</jvmFlag>
               <!-- ensure a kill from k8s is respected -->
               <jvmFlag>-Dfusion.launcher.useHook=true</jvmFlag>
-              <!-- let's make it long enough: 2 days -->
-              <jvmFlag>-Dbundlebee.awaiter.retryInterval=172800000</jvmFlag>
               <!-- for gatling -->
               <jvmFlag>--add-opens</jvmFlag>
               <jvmFlag>java.base/java.lang=ALL-UNNAMED</jvmFlag>
