@@ -116,84 +116,82 @@ class BenchmarkCommandTest {
                                             URI.create(
                                                     "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                             """
-                                            {
-                                              "apiVersion": "batch/v1",
-                                              "kind": "Job",
-                                              "metadata": {
-                                                "name": "my-bench-0-0",
-                                                "labels": {},
-                                                "annotations": {}
-                                              },
-                                              "spec": {
-                                                "backoffLimit": 0,
-                                                "ttlSecondsAfterFinished": 300,
-                                                "template": {
-                                                  "metadata": {
-                                                    "labels": {},
-                                                    "annotations": {}
-                                                  },
-                                                  "spec": {
-                                                    "activeDeadlineSeconds": 14400,
-                                                    "containers": [
-                                                      {
-                                                        "args": [],
-                                                        "image": "yupiik/gatling-cli:latest",
-                                                        "imagePullPolicy": "Always",
-                                                        "workingDir": "/tmp",
-                                                        "name": "orchestrator",
-                                                        "securityContext": {
-                                                          "capabilities": {
-                                                            "drop": [
-                                                              "ALL"
-                                                            ]
+                                                    {
+                                                      "apiVersion": "batch/v1",
+                                                      "kind": "Job",
+                                                      "metadata": {
+                                                        "name": "my-bench-0-0",
+                                                        "labels": {},
+                                                        "annotations": {}
+                                                      },
+                                                      "spec": {
+                                                        "backoffLimit": 0,
+                                                        "ttlSecondsAfterFinished": 300,
+                                                        "template": {
+                                                          "metadata": {
+                                                            "labels": {},
+                                                            "annotations": {}
                                                           },
-                                                          "readOnlyRootFilesystem": true,
-                                                          "runAsNonRoot": true,
-                                                          "runAsUser": 10000,
-                                                          "allowPrivilegeEscalation": false
-                                                        },
-                                                        "env": [],
-                                                        "command": [],
-                                                        "volumeMounts": [],
-                                                        "resources": {
-                                                          "requests": {
-                                                            "cpu": "100m",
-                                                            "memory": "256Mi"
-                                                          },
-                                                          "limits": {
-                                                            "memory": "256Mi"
+                                                          "spec": {
+                                                            "activeDeadlineSeconds": 14400,
+                                                            "containers": [
+                                                              {
+                                                                "image": "yupiik/gatling-cli:latest",
+                                                                "imagePullPolicy": "Always",
+                                                                "workingDir": "/tmp",
+                                                                "name": "orchestrator",
+                                                                "resources": {
+                                                                  "requests": {
+                                                                    "cpu": "100m",
+                                                                    "memory": "256Mi"
+                                                                  },
+                                                                  "limits": {
+                                                                    "memory": "256Mi"
+                                                                  }
+                                                                },
+                                                                "securityContext": {
+                                                                  "capabilities": {
+                                                                    "drop": [
+                                                                      "ALL"
+                                                                    ]
+                                                                  },
+                                                                  "readOnlyRootFilesystem": true,
+                                                                  "runAsNonRoot": true,
+                                                                  "runAsUser": 10000,
+                                                                  "allowPrivilegeEscalation": false
+                                                                },
+                                                                "env": [],
+                                                                "volumeMounts": []
+                                                              }
+                                                            ],
+                                                            "initContainers": [],
+                                                            "imagePullSecrets": [],
+                                                            "automountServiceAccountToken": true,
+                                                            "serviceAccountName": "default",
+                                                            "securityContext": {
+                                                              "fsGroup": 10000,
+                                                              "fsGroupChangePolicy": "OnRootMismatch",
+                                                              "seccompProfile": {
+                                                                "type": "RuntimeDefault"
+                                                              }
+                                                            },
+                                                            "dnsConfig": {
+                                                              "options": [
+                                                                {
+                                                                  "name": "ndots",
+                                                                  "value": "2"
+                                                                }
+                                                              ]
+                                                            },
+                                                            "restartPolicy": "Never",
+                                                            "nodeSelector": {},
+                                                            "affinity": {},
+                                                            "tolerations": [],
+                                                            "volumes": []
                                                           }
                                                         }
                                                       }
-                                                    ],
-                                                    "initContainers": [],
-                                                    "imagePullSecrets": [],
-                                                    "automountServiceAccountToken": true,
-                                                    "serviceAccountName": "default",
-                                                    "securityContext": {
-                                                      "fsGroup": 10000,
-                                                      "fsGroupChangePolicy": "OnRootMismatch",
-                                                      "seccompProfile": {
-                                                        "type": "RuntimeDefault"
-                                                      }
-                                                    },
-                                                    "dnsConfig": {
-                                                      "options": [
-                                                        {
-                                                          "name": "ndots",
-                                                          "value": "2"
-                                                        }
-                                                      ]
-                                                    },
-                                                    "restartPolicy": "Never",
-                                                    "nodeSelector": {},
-                                                    "affinity": {},
-                                                    "tolerations": [],
-                                                    "volumes": []
-                                                  }
-                                                }
-                                              }
-                                            }"""),
+                                                    }"""),
                                     new Kubernetes.Request(
                                             "PATCH",
                                             URI.create(
@@ -210,174 +208,173 @@ class BenchmarkCommandTest {
                                             URI.create(
                                                     "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                             """
-                                            {
-                                              "apiVersion": "batch/v1",
-                                              "kind": "Job",
-                                              "metadata": {
-                                                "name": "my-bench-1-0",
-                                                "labels": {},
-                                                "annotations": {}
-                                              },
-                                              "spec": {
-                                                "backoffLimit": 0,
-                                                "ttlSecondsAfterFinished": 300,
-                                                "template": {
-                                                  "metadata": {
-                                                    "labels": {},
-                                                    "annotations": {}
-                                                  },
-                                                  "spec": {
-                                                    "activeDeadlineSeconds": 14400,
-                                                    "containers": [
-                                                      {
-                                                        "args": [],
-                                                        "image": "gatling:latest",
-                                                        "imagePullPolicy": "Always",
-                                                        "workingDir": "/tmp",
-                                                        "name": "orchestrator",
-                                                        "securityContext": {
-                                                          "capabilities": {
-                                                            "drop": [
-                                                              "ALL"
-                                                            ]
+                                                    {
+                                                      "apiVersion": "batch/v1",
+                                                      "kind": "Job",
+                                                      "metadata": {
+                                                        "name": "my-bench-1-0",
+                                                        "labels": {},
+                                                        "annotations": {}
+                                                      },
+                                                      "spec": {
+                                                        "backoffLimit": 0,
+                                                        "ttlSecondsAfterFinished": 300,
+                                                        "template": {
+                                                          "metadata": {
+                                                            "labels": {},
+                                                            "annotations": {}
                                                           },
-                                                          "readOnlyRootFilesystem": true,
-                                                          "runAsNonRoot": true,
-                                                          "runAsUser": 10000,
-                                                          "allowPrivilegeEscalation": false
-                                                        },
-                                                        "env": [],
-                                                        "command": [
-                                                          "java",
-                                                          "..."
-                                                        ],
-                                                        "volumeMounts": [],
-                                                        "resources": {
-                                                          "requests": {
-                                                            "cpu": "100m",
-                                                            "memory": "256Mi"
-                                                          },
-                                                          "limits": {
-                                                            "memory": "256Mi"
+                                                          "spec": {
+                                                            "activeDeadlineSeconds": 14400,
+                                                            "containers": [
+                                                              {
+                                                                "image": "gatling:latest",
+                                                                "imagePullPolicy": "Always",
+                                                                "workingDir": "/tmp",
+                                                                "name": "orchestrator",
+                                                                "resources": {
+                                                                  "requests": {
+                                                                    "cpu": "100m",
+                                                                    "memory": "256Mi"
+                                                                  },
+                                                                  "limits": {
+                                                                    "memory": "256Mi"
+                                                                  }
+                                                                },
+                                                                "securityContext": {
+                                                                  "capabilities": {
+                                                                    "drop": [
+                                                                      "ALL"
+                                                                    ]
+                                                                  },
+                                                                  "readOnlyRootFilesystem": true,
+                                                                  "runAsNonRoot": true,
+                                                                  "runAsUser": 10000,
+                                                                  "allowPrivilegeEscalation": false
+                                                                },
+                                                                "env": [],
+                                                                "command": [
+                                                                  "java",
+                                                                  "..."
+                                                                ],
+                                                                "volumeMounts": []
+                                                              }
+                                                            ],
+                                                            "initContainers": [],
+                                                            "imagePullSecrets": [],
+                                                            "automountServiceAccountToken": true,
+                                                            "serviceAccountName": "default",
+                                                            "securityContext": {
+                                                              "fsGroup": 10000,
+                                                              "fsGroupChangePolicy": "OnRootMismatch",
+                                                              "seccompProfile": {
+                                                                "type": "RuntimeDefault"
+                                                              }
+                                                            },
+                                                            "dnsConfig": {
+                                                              "options": [
+                                                                {
+                                                                  "name": "ndots",
+                                                                  "value": "2"
+                                                                }
+                                                              ]
+                                                            },
+                                                            "restartPolicy": "Never",
+                                                            "nodeSelector": {},
+                                                            "affinity": {},
+                                                            "tolerations": [],
+                                                            "volumes": []
                                                           }
                                                         }
                                                       }
-                                                    ],
-                                                    "initContainers": [],
-                                                    "imagePullSecrets": [],
-                                                    "automountServiceAccountToken": true,
-                                                    "serviceAccountName": "default",
-                                                    "securityContext": {
-                                                      "fsGroup": 10000,
-                                                      "fsGroupChangePolicy": "OnRootMismatch",
-                                                      "seccompProfile": {
-                                                        "type": "RuntimeDefault"
-                                                      }
-                                                    },
-                                                    "dnsConfig": {
-                                                      "options": [
-                                                        {
-                                                          "name": "ndots",
-                                                          "value": "2"
-                                                        }
-                                                      ]
-                                                    },
-                                                    "restartPolicy": "Never",
-                                                    "nodeSelector": {},
-                                                    "affinity": {},
-                                                    "tolerations": [],
-                                                    "volumes": []
-                                                  }
-                                                }
-                                              }
-                                            }"""),
+                                                    }"""),
                                     new Kubernetes.Request(
                                             "POST",
                                             URI.create(
                                                     "/apis/batch/v1/namespaces/default/jobs?fieldManager=kubectl-client-side-apply&fieldValidation=Strict"),
                                             """
-                                            {
-                                              "apiVersion": "batch/v1",
-                                              "kind": "Job",
-                                              "metadata": {
-                                                "name": "my-bench-1-1",
-                                                "labels": {},
-                                                "annotations": {}
-                                              },
-                                              "spec": {
-                                                "backoffLimit": 0,
-                                                "ttlSecondsAfterFinished": 300,
-                                                "template": {
-                                                  "metadata": {
-                                                    "labels": {},
-                                                    "annotations": {}
-                                                  },
-                                                  "spec": {
-                                                    "activeDeadlineSeconds": 14400,
-                                                    "containers": [
-                                                      {
-                                                        "args": [
-                                                          "..."
-                                                        ],
-                                                        "image": "node:latest",
-                                                        "imagePullPolicy": "Always",
-                                                        "workingDir": "/tmp",
-                                                        "name": "orchestrator",
-                                                        "securityContext": {
-                                                          "capabilities": {
-                                                            "drop": [
-                                                              "ALL"
-                                                            ]
+                                                    {
+                                                      "apiVersion": "batch/v1",
+                                                      "kind": "Job",
+                                                      "metadata": {
+                                                        "name": "my-bench-1-1",
+                                                        "labels": {},
+                                                        "annotations": {}
+                                                      },
+                                                      "spec": {
+                                                        "backoffLimit": 0,
+                                                        "ttlSecondsAfterFinished": 300,
+                                                        "template": {
+                                                          "metadata": {
+                                                            "labels": {},
+                                                            "annotations": {}
                                                           },
-                                                          "readOnlyRootFilesystem": true,
-                                                          "runAsNonRoot": true,
-                                                          "runAsUser": 10000,
-                                                          "allowPrivilegeEscalation": false
-                                                        },
-                                                        "env": [],
-                                                        "command": [
-                                                          "node"
-                                                        ],
-                                                        "volumeMounts": [],
-                                                        "resources": {
-                                                          "requests": {
-                                                            "cpu": "100m",
-                                                            "memory": "256Mi"
-                                                          },
-                                                          "limits": {
-                                                            "memory": "256Mi"
+                                                          "spec": {
+                                                            "activeDeadlineSeconds": 14400,
+                                                            "containers": [
+                                                              {
+                                                                "args": [
+                                                                  "..."
+                                                                ],
+                                                                "image": "node:latest",
+                                                                "imagePullPolicy": "Always",
+                                                                "workingDir": "/tmp",
+                                                                "name": "orchestrator",
+                                                                "securityContext": {
+                                                                  "capabilities": {
+                                                                    "drop": [
+                                                                      "ALL"
+                                                                    ]
+                                                                  },
+                                                                  "readOnlyRootFilesystem": true,
+                                                                  "runAsNonRoot": true,
+                                                                  "runAsUser": 10000,
+                                                                  "allowPrivilegeEscalation": false
+                                                                },
+                                                                "env": [],
+                                                                "command": [
+                                                                  "node"
+                                                                ],
+                                                                "volumeMounts": [],
+                                                                "resources": {
+                                                                  "requests": {
+                                                                    "cpu": "100m",
+                                                                    "memory": "256Mi"
+                                                                  },
+                                                                  "limits": {
+                                                                    "memory": "256Mi"
+                                                                  }
+                                                                }
+                                                              }
+                                                            ],
+                                                            "initContainers": [],
+                                                            "imagePullSecrets": [],
+                                                            "automountServiceAccountToken": true,
+                                                            "serviceAccountName": "default",
+                                                            "securityContext": {
+                                                              "fsGroup": 10000,
+                                                              "fsGroupChangePolicy": "OnRootMismatch",
+                                                              "seccompProfile": {
+                                                                "type": "RuntimeDefault"
+                                                              }
+                                                            },
+                                                            "dnsConfig": {
+                                                              "options": [
+                                                                {
+                                                                  "name": "ndots",
+                                                                  "value": "2"
+                                                                }
+                                                              ]
+                                                            },
+                                                            "restartPolicy": "Never",
+                                                            "nodeSelector": {},
+                                                            "affinity": {},
+                                                            "tolerations": [],
+                                                            "volumes": []
                                                           }
                                                         }
                                                       }
-                                                    ],
-                                                    "initContainers": [],
-                                                    "imagePullSecrets": [],
-                                                    "automountServiceAccountToken": true,
-                                                    "serviceAccountName": "default",
-                                                    "securityContext": {
-                                                      "fsGroup": 10000,
-                                                      "fsGroupChangePolicy": "OnRootMismatch",
-                                                      "seccompProfile": {
-                                                        "type": "RuntimeDefault"
-                                                      }
-                                                    },
-                                                    "dnsConfig": {
-                                                      "options": [
-                                                        {
-                                                          "name": "ndots",
-                                                          "value": "2"
-                                                        }
-                                                      ]
-                                                    },
-                                                    "restartPolicy": "Never",
-                                                    "nodeSelector": {},
-                                                    "affinity": {},
-                                                    "tolerations": [],
-                                                    "volumes": []
-                                                  }
-                                                }
-                                              }
-                                            }"""),
+                                                    }"""),
                                     new Kubernetes.Request(
                                             "DELETE",
                                             URI.create(
