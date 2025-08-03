@@ -25,11 +25,15 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -48,6 +52,7 @@ public class BenchmarkCommand implements Runnable {
     private final KubernetesClient kubernetes;
     private final ScheduledExecutorService executor;
     private final BundleBeeService bundleBee;
+    private final ConcurrentMap<Integer, List<URI>> deleteUrisPerRange = new ConcurrentHashMap<>();
 
     public BenchmarkCommand(
             final BenchmarkCommandConfiguration configuration,
@@ -75,13 +80,18 @@ public class BenchmarkCommand implements Runnable {
 
     private CompletionStage<?> doExecutePipeline(
             final long globalTimeout,
+            final int previousRange,
             final Iterator<Map.Entry<Integer, List<GatlingBenchmarkSpec.Alveolus>>> iterator) {
         if (!iterator.hasNext()) {
+            deleteIfNeeded(previousRange + 1); // for final implicit cleanups if needed
             return completedFuture(null);
         }
 
         final var range = iterator.next();
-        logger.info(() -> "Running range: #" + range.getKey() + " (#" + range.getValue() + " jobs)");
+        final int rangeNumber = range.getKey();
+        logger.info(() -> "Running range: #" + rangeNumber + " (#" + range.getValue() + " jobs)");
+
+        deleteIfNeeded(rangeNumber);
 
         final var index = new AtomicInteger();
         final var baseImplicitPlaceholders = Map.of(
@@ -92,11 +102,11 @@ public class BenchmarkCommand implements Runnable {
                 "gatling-operator.implicit.parent-name",
                 name,
                 "gatling-operator.implicit.range",
-                Integer.toString(range.getKey()),
+                Integer.toString(rangeNumber),
                 // encourage cleanup - otherwise to setup manually
                 "generic-job.labels",
                 "{\"gatling.yupiik.io/parent-name\":\"" + name + "\"}");
-        return setStatus(new GatlingBenchmarkStatus(RUNNING, null, range.getKey()))
+        return setStatus(new GatlingBenchmarkStatus(RUNNING, null, rangeNumber))
                 .thenComposeAsync(
                         i -> allOf(range.getValue().stream()
                                 .map(it -> {
@@ -112,7 +122,7 @@ public class BenchmarkCommand implements Runnable {
                                                                     indexValue,
                                                                     // defaults, can be overriden by custom placeholders
                                                                     "generic-job.name",
-                                                                    name + "-" + range.getKey() + "-" + indexValue,
+                                                                    name + "-" + rangeNumber + "-" + indexValue,
                                                                     "generic-job.activeDeadlineSeconds",
                                                                     Long.toString(
                                                                             Math.max(
@@ -126,12 +136,68 @@ public class BenchmarkCommand implements Runnable {
                                                                     // it.placeholdlers()
                                                                     "generic-job.serviceAccountName",
                                                                     "default"),
-                                                            it.placeholders()))
+                                                            it.placeholders()),
+                                                    desc -> {
+                                                        if (it.deleteRange() == null || it.deleteRange() <= 0) {
+                                                            return;
+                                                        }
+                                                        final var kind = desc.getString("kind");
+                                                        final var metadata = desc.getJsonObject("metadata");
+                                                        final var name = metadata.getString("name");
+                                                        final var namespace =
+                                                                metadata.getString("namespace", "default");
+                                                        final var job = kind.equalsIgnoreCase("job");
+                                                        if (job || kind.equalsIgnoreCase("service")) {
+                                                            deleteUrisPerRange
+                                                                    .computeIfAbsent(
+                                                                            it.deleteRange(),
+                                                                            ignored -> new CopyOnWriteArrayList<>())
+                                                                    .add(URI.create((job ? "/apis/batch/v1" : "/api/v1")
+                                                                            + "/namespaces/"
+                                                                            + namespace + "/"
+                                                                            + kind.toLowerCase(Locale.ROOT) + "s/"
+                                                                            + name));
+                                                        }
+                                                    })
                                             .toCompletableFuture();
                                 })
                                 .toArray(CompletableFuture<?>[]::new)),
                         executor)
-                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, iterator), executor);
+                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, rangeNumber, iterator), executor);
+    }
+
+    private void deleteIfNeeded(final int rangeNumber) {
+        final var toDelete = deleteUrisPerRange.get(rangeNumber);
+        if (toDelete != null && !toDelete.isEmpty()) {
+            logger.info(() -> "Deleting " + toDelete);
+            // do not await, just trigger the deletion and continue
+            allOf(toDelete.stream()
+                            .map(it -> kubernetes
+                                    .sendAsync(
+                                            HttpRequest.newBuilder()
+                                                    .method(
+                                                            "DELETE",
+                                                            HttpRequest.BodyPublishers.ofString(
+                                                                    "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Background\",\"gracePeriodSeconds\":60}"))
+                                                    .uri(it)
+                                                    .build(),
+                                            ofString())
+                                    .thenAccept(deleted -> {
+                                        if (deleted.statusCode() > 299) {
+                                            logger.severe(() ->
+                                                    "An error occurred deleting '" + it + "':\n" + deleted.body());
+                                        }
+                                    }))
+                            .toArray(CompletableFuture<?>[]::new))
+                    .thenRun(() -> logger.info(() -> "Deletions of range #" + rangeNumber + " done " + toDelete))
+                    .exceptionally(e -> {
+                        logger.log(
+                                SEVERE,
+                                e,
+                                () -> "An error occurred cleaning at stage #" + rangeNumber + ": " + e.getMessage());
+                        return null;
+                    });
+        }
     }
 
     @SafeVarargs
@@ -158,7 +224,7 @@ public class BenchmarkCommand implements Runnable {
                 .map(it -> it.thenRun(() -> {}).toCompletableFuture())
                 .toArray(CompletableFuture<?>[]::new));
         return resolvedAlveoli.thenComposeAsync(
-                ignored -> doExecutePipeline(configuration.spec().timeout(), byRange.iterator()), executor);
+                ignored -> doExecutePipeline(configuration.spec().timeout(), 0, byRange.iterator()), executor);
     }
 
     private CompletableFuture<Void> doRun(final BenchmarkCommandConfiguration configuration) {

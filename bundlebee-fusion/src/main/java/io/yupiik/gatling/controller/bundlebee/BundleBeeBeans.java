@@ -1,8 +1,8 @@
 package io.yupiik.gatling.controller.bundlebee;
 
+import io.yupiik.bundlebee.core.kube.ApiPreloader;
 import io.yupiik.bundlebee.core.kube.DefaultHttpKubeClient;
 import io.yupiik.bundlebee.core.kube.HttpKubeClient;
-import io.yupiik.bundlebee.core.kube.KubeClient;
 import io.yupiik.bundlebee.core.lang.SubstitutorProducer;
 import io.yupiik.bundlebee.core.service.AlveolusHandler;
 import io.yupiik.bundlebee.core.service.ArchiveReader;
@@ -14,6 +14,7 @@ import javax.enterprise.event.Observes;
 import javax.enterprise.inject.se.SeContainer;
 import javax.enterprise.inject.se.SeContainerInitializer;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
+import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.ProcessBeanAttributes;
 
@@ -27,7 +28,13 @@ public class BundleBeeBeans {
         return SeContainerInitializer.newInstance()
                 // replace default client by fusion one for consistency in the operator
                 .addExtensions(new Extension() {
-                    void onDefaultClient(@Observes final ProcessBeanAttributes<DefaultHttpKubeClient> defaultClient) {
+                    void replaceKubeClient(@Observes final BeforeBeanDiscovery beforeBeanDiscovery) {
+                        beforeBeanDiscovery.addAnnotatedType(
+                                ExposingKubeClient.class, ExposingKubeClient.class.getName());
+                    }
+
+                    void onDefaultHttpKubeClient(
+                            @Observes final ProcessBeanAttributes<DefaultHttpKubeClient> defaultClient) {
                         defaultClient.veto();
                     }
 
@@ -71,7 +78,13 @@ public class BundleBeeBeans {
 
     @Bean
     @ApplicationScoped
-    public KubeClient kubeClient(final SeContainer container) {
-        return container.select(KubeClient.class).get();
+    public ExposingKubeClient kubeClient(final SeContainer container) {
+        return container.select(ExposingKubeClient.class).get();
+    }
+
+    @Bean
+    @ApplicationScoped
+    public ApiPreloader apiPreloader(final SeContainer container) {
+        return container.select(ApiPreloader.class).get();
     }
 }

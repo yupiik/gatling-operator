@@ -51,6 +51,11 @@ public record GatlingBenchmarkSpec(
                                     "_Range_ of the alveolus, alveoli with the same range are executed concurrently. A negative range means _start, await started and continue then delete when all the pipeline is executed.",
                             defaultValue = "0")
                     Integer range,
+            @Property(
+                            documentation =
+                                    "Range the job (only works for jobs and services) can be killed. For example if you use `gatling-operator#generic-service#fire-and-forget` at range `0` and run the injectors at range `1`, it means at range `2` you can kill this pod so setting `2` will avoid it to leak if you do not use `autoClean`.",
+                            defaultValue = "0")
+                    Integer deleteRange,
             @Property( // 4h
                             value = "timeout",
                             documentation =

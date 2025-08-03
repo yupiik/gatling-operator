@@ -1,8 +1,9 @@
 package io.yupiik.gatling.controller.bundlebee;
 
+import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
 
-import io.yupiik.bundlebee.core.kube.KubeClient;
+import io.yupiik.bundlebee.core.kube.ApiPreloader;
 import io.yupiik.bundlebee.core.lang.SubstitutorProducer;
 import io.yupiik.bundlebee.core.service.AlveolusHandler;
 import io.yupiik.bundlebee.core.service.ArchiveReader;
@@ -16,13 +17,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import javax.json.JsonObject;
 
 @ApplicationScoped
 public class BundleBeeService {
     private final AlveolusHandler handler;
     private final SubstitutorProducer substitutorProducer;
     private final ArchiveReader.Cache cache;
-    private final KubeClient kubeClient; // actually a preprocessor/postprocessor not the actual client in bundlebee
+    private final ApiPreloader apiPreloader;
+    private final ExposingKubeClient
+            kubeClient; // actually a preprocessor/postprocessor not the actual client in bundlebee
     private final ConditionAwaiter conditionAwaiter;
     private final ScheduledExecutorService scheduledExecutorService;
     private final AtomicLong id = new AtomicLong();
@@ -35,9 +40,11 @@ public class BundleBeeService {
             final ArchiveReader archiveReader,
             final ConditionAwaiter conditionAwaiter,
             final ScheduledExecutorService scheduledExecutorService,
-            final KubeClient kubeClient) {
+            final ApiPreloader apiPreloader,
+            final ExposingKubeClient kubeClient) {
         this.handler = handler;
         this.substitutorProducer = substitutorProducer;
+        this.apiPreloader = apiPreloader;
         this.kubeClient = kubeClient;
         this.conditionAwaiter = conditionAwaiter;
         this.scheduledExecutorService = scheduledExecutorService;
@@ -53,7 +60,10 @@ public class BundleBeeService {
 
     // simplified version of bundlebee.apply command
     public CompletionStage<?> deploy(
-            final String alveolus, final long awaitTimeout, final Map<String, String> placeholders) {
+            final String alveolus,
+            final long awaitTimeout,
+            final Map<String, String> placeholders,
+            final Consumer<JsonObject> onDescriptor) {
         final var id = Long.toString(this.id.incrementAndGet());
         substitutorProducer.getByIdContextualPlaceholders().put(id, placeholders);
         try {
@@ -94,7 +104,24 @@ public class BundleBeeService {
                                 if (content != desc.getContent()) { // ref equal is faster and ok there
                                     patchedContents.put(desc.getContent(), content);
                                 }
-                                return kubeClient.apply(content, desc.getExtension(), Map.of(), true);
+                                return kubeClient.forDescriptorWithOriginal(
+                                        "Applying", content, desc.getExtension(), item -> {
+                                            final var kindLowerCased = item.getPrepared()
+                                                            .getString("kind")
+                                                            .toLowerCase(ROOT)
+                                                    + 's';
+                                            if (onDescriptor != null) {
+                                                onDescriptor.accept(item.getPrepared());
+                                            }
+                                            return apiPreloader
+                                                    .ensureResourceSpec(item.getPrepared(), kindLowerCased)
+                                                    .thenCompose(ignored -> kubeClient.doApply(
+                                                            item.getRaw(),
+                                                            item.getPrepared(),
+                                                            kindLowerCased,
+                                                            1,
+                                                            true));
+                                        });
                             },
                             cache,
                             desc -> conditionAwaiter.await(

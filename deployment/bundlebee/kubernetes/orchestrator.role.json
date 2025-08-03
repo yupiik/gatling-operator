@@ -17,7 +17,6 @@
       ],
       "verbs": [
         "create",
-        "get",
         "delete"
       ]
     },
@@ -30,6 +29,7 @@
       ],
       "verbs": [
         "create",
+        "delete",
         "get"
       ]
     },

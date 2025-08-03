@@ -292,7 +292,8 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                 benchmark.spec().timeout() == null
                         ? 14_400_000L
                         : benchmark.spec().timeout(),
-                toPlaceholders(benchmark));
+                toPlaceholders(benchmark),
+                null);
     }
 
     // note: this can be enhanced enabling to override and merge some placeholders like env, labels ones
@@ -376,13 +377,21 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                                 : spec.pipeline().stream().flatMap(it -> {
                                     final var idx = index.getAndIncrement();
                                     final var prefix = "--spec-pipeline-" + idx + "-";
-                                    return Stream.of(
-                                            prefix + "name",
-                                            it.name(),
-                                            prefix + "range",
-                                            Integer.toString(it.range()),
-                                            prefix + "placeholders",
-                                            it.placeholders() == null ? "" : toPlaceholdersCliValue(it.placeholders()));
+                                    return Stream.concat(
+                                            Stream.of(
+                                                    prefix + "name",
+                                                    it.name(),
+                                                    prefix + "range",
+                                                    Integer.toString(it.range()),
+                                                    prefix + "placeholders",
+                                                    it.placeholders() == null
+                                                            ? ""
+                                                            : toPlaceholdersCliValue(it.placeholders())),
+                                            it.deleteRange() == null
+                                                    ? Stream.<String>empty()
+                                                    : Stream.of(
+                                                            prefix + "deleteRange",
+                                                            Integer.toString(it.deleteRange())));
                                 }))
                 .flatMap(it -> it);
     }
