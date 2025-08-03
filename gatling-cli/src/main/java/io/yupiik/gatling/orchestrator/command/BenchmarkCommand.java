@@ -173,11 +173,12 @@ public class BenchmarkCommand implements Runnable {
                     if (job || kind.equalsIgnoreCase("service")) {
                         deleteUrisPerRange
                                 .computeIfAbsent(alveolus.deleteRange(), ignored -> new CopyOnWriteArrayList<>())
-                                .add(URI.create((job ? "/apis/batch/v1" : "/api/v1")
-                                        + "/namespaces/"
-                                        + namespace + "/"
-                                        + kind.toLowerCase(Locale.ROOT) + "s/"
-                                        + name));
+                                .add(kubernetes
+                                        .base()
+                                        .resolve(((job ? "/apis/batch/v1" : "/api/v1")
+                                                + "/namespaces/" + namespace + "/"
+                                                + kind.toLowerCase(Locale.ROOT) + "s/"
+                                                + name)));
                     }
                 });
     }

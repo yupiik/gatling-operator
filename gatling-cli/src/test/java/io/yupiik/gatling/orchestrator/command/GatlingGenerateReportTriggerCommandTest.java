@@ -16,15 +16,18 @@ class GatlingGenerateReportTriggerCommandTest {
         final var captures = new CopyOnWriteArrayList<String>();
         final var server = HttpServer.create(new InetSocketAddress("localhost", 0), 8);
         server.createContext("/").setHandler(ex -> {
+            final var head = "HEAD".equals(ex.getRequestMethod())
+                    && "/api/end".equals(ex.getRequestURI().getPath());
             try (ex) {
-                if ("HEAD".equals(ex.getRequestMethod())
-                        && "/api/end".equals(ex.getRequestURI().getPath())) {
-                    try (final var in = ex.getRequestBody()) {
-                        captures.add("ok");
-                    }
+                if (head) {
+                    captures.add("ok");
                     ex.sendResponseHeaders(200, 0);
                 } else {
-                    ex.sendResponseHeaders(404, 00);
+                    ex.sendResponseHeaders(404, 0);
+                }
+            } finally {
+                if (head) {
+                    server.stop(0);
                 }
             }
         });

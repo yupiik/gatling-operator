@@ -393,7 +393,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                                                             : Stream.of(
                                                                     prefix + "deleteRange",
                                                                     Integer.toString(it.deleteRange())),
-                                                    it.deleteRange() == null
+                                                    it.executeCondition() == null
                                                             ? Stream.<String>empty()
                                                             : Stream.of(
                                                                     prefix + "executeCondition",

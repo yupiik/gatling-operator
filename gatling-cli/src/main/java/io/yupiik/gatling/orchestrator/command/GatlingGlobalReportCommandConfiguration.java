@@ -9,6 +9,9 @@ public record GatlingGlobalReportCommandConfiguration(
                 String workDirectory,
         @Property(
                         value = "report-directory",
-                        documentation = "Where to write the report (named report.adoc by convention today)")
+                        documentation = "Where to write the report (named report.adoc by convention today)",
+                        defaultValue = "\"/tmp\"")
                 String reportDirectory,
+        @Property(value = "address", defaultValue = "\"localhost\"", documentation = "Address to bind the server to")
+                String address,
         @Property(value = "port", documentation = "Port to bind the server to") int port) {}

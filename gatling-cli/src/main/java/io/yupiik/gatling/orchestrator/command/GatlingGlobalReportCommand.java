@@ -98,9 +98,14 @@ public class GatlingGlobalReportCommand implements Runnable {
         final var latch = new CountDownLatch(1);
         HttpServer server = null;
         try {
-            server = HttpServer.create(new InetSocketAddress("localhost", configuration.port()), 128);
-            server.createContext("/").setHandler(ex -> onExchange(ex, latch));
+            server = HttpServer.create(new InetSocketAddress(configuration.address(), configuration.port()), 128);
+            server.createContext("/").setHandler(ex -> {
+                if (onExchange(ex)) {
+                    latch.countDown();
+                }
+            });
             server.start();
+            logger.info("Server started on port " + server.getAddress().getPort());
             latch.await();
         } catch (final IOException ioe) {
             logger.log(SEVERE, ioe, () -> "Can't start server");
@@ -114,36 +119,34 @@ public class GatlingGlobalReportCommand implements Runnable {
         }
     }
 
-    private void onExchange(final HttpExchange ex, final CountDownLatch latch) throws IOException {
+    private boolean onExchange(final HttpExchange ex) throws IOException {
         logger.info(() -> ex.getRequestMethod() + " " + ex.getRequestURI());
         var exit = false;
-        try {
-            try (ex) {
-                if ("POST".equals(ex.getRequestMethod())
-                        && "/api/reports".equals(ex.getRequestURI().getPath())) {
-                    saveReport(ex);
-                    writeEmptyResponse(ex);
-                } else if ("HEAD".equals(ex.getRequestMethod())
-                        && "/api/end".equals(ex.getRequestURI().getPath())) {
-                    try {
-                        generateReport();
-                        ex.sendResponseHeaders(200, 0);
-                    } finally {
-                        exit = true;
-                        logger.info(() -> "Exiting");
-                    }
-                } else if (("HEAD".equals(ex.getRequestMethod()) || "GET".equals(ex.getRequestMethod()))
-                        && "/api/health".equals(ex.getRequestURI().getPath())) {
-                    writeEmptyResponse(ex);
-                } else {
-                    ex.sendResponseHeaders(404, 0);
+        try (ex) {
+            if ("POST".equals(ex.getRequestMethod())
+                    && "/api/reports".equals(ex.getRequestURI().getPath())) {
+                saveReport(ex);
+                writeEmptyResponse(ex);
+            } else if ("HEAD".equals(ex.getRequestMethod())
+                    && "/api/end".equals(ex.getRequestURI().getPath())) {
+                try {
+                    generateReport();
+                    ex.sendResponseHeaders(200, -1);
+                } finally {
+                    exit = true;
+                    logger.info(() -> "Exiting");
                 }
+            } else if (("HEAD".equals(ex.getRequestMethod()) || "GET".equals(ex.getRequestMethod()))
+                    && "/api/health".equals(ex.getRequestURI().getPath())) {
+                writeEmptyResponse(ex);
+            } else {
+                ex.sendResponseHeaders(404, 0);
             }
-        } finally {
-            if (exit) {
-                latch.countDown();
-            }
+        } catch (final Exception e) {
+            logger.log(SEVERE, e, e::getMessage);
+            ex.sendResponseHeaders(500, 0);
         }
+        return exit;
     }
 
     private static void writeEmptyResponse(final HttpExchange ex) throws IOException {

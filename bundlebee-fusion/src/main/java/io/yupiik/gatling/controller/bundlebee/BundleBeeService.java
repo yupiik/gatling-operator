@@ -2,6 +2,7 @@ package io.yupiik.gatling.controller.bundlebee;
 
 import static java.util.Locale.ROOT;
 import static java.util.Optional.ofNullable;
+import static java.util.logging.Level.SEVERE;
 
 import io.yupiik.bundlebee.core.kube.ApiPreloader;
 import io.yupiik.bundlebee.core.lang.SubstitutorProducer;
@@ -18,10 +19,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import javax.json.JsonObject;
 
 @ApplicationScoped
 public class BundleBeeService {
+    private final Logger logger = Logger.getLogger(getClass().getName());
     private final AlveolusHandler handler;
     private final SubstitutorProducer substitutorProducer;
     private final ArchiveReader.Cache cache;
@@ -138,8 +141,12 @@ public class BundleBeeService {
                                     awaitTimeout),
                             "deployed",
                             id))
-                    .whenComplete((ok, ko) ->
-                            substitutorProducer.getByIdContextualPlaceholders().remove(id));
+                    .whenComplete((ok, ko) -> {
+                        if (ko != null) {
+                            logger.log(SEVERE, ko, ko::getMessage);
+                        }
+                        substitutorProducer.getByIdContextualPlaceholders().remove(id);
+                    });
         } catch (final RuntimeException re) {
             substitutorProducer.getByIdContextualPlaceholders().remove(id);
             final var promise = new CompletableFuture<Void>();

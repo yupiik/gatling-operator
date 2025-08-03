@@ -28,11 +28,11 @@ class BenchmarkCommandTest {
                                     exchange,
                                     200,
                                     """
-                                    {
-                                      "status": {
-                                        "succeeded": 1
-                                      }
-                                    }""");
+                                            {
+                                              "status": {
+                                                "succeeded": 1
+                                              }
+                                            }""");
                             return false;
                         }
                         return super.doGet(exchange);
@@ -54,25 +54,25 @@ class BenchmarkCommandTest {
                             "0",
                             "--spec-pipeline-0-placeholders",
                             """
-                            users=100
-                            duration=100""",
+                                    users=100
+                                    duration=100""",
                             "--spec-pipeline-1-name",
                             "gatling-operator#generic-job#awaited",
                             "--spec-pipeline-1-range",
                             "1",
                             "--spec-pipeline-1-placeholders",
                             """
-                            generic-job.command=["java","..."]
-                            generic-job.image=gatling:latest""",
+                                    generic-job.command=["java","..."]
+                                    generic-job.image=gatling:latest""",
                             "--spec-pipeline-2-name",
                             "gatling-operator#generic-job#awaited",
                             "--spec-pipeline-2-range",
                             "1",
                             "--spec-pipeline-2-placeholders",
                             """
-                            generic-job.command=["node"]
-                            generic-job.args=["..."]
-                            generic-job.image=node:latest""");
+                                    generic-job.command=["node"]
+                                    generic-job.args=["..."]
+                                    generic-job.image=node:latest""");
                     assertEquals(
                             Set.of(
                                     new Kubernetes.Request(
@@ -80,23 +80,23 @@ class BenchmarkCommandTest {
                                             URI.create(
                                                     "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/my-bench/status"),
                                             """
-                                            {
-                                              "status": {
-                                                "range": -1,
-                                                "status": "RUNNING"
-                                              }
-                                            }"""),
+                                                    {
+                                                      "status": {
+                                                        "range": -1,
+                                                        "status": "RUNNING"
+                                                      }
+                                                    }"""),
                                     new Kubernetes.Request(
                                             "PATCH",
                                             URI.create(
                                                     "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/my-bench/status"),
                                             """
-                                            {
-                                              "status": {
-                                                "range": 0,
-                                                "status": "RUNNING"
-                                              }
-                                            }"""),
+                                                    {
+                                                      "status": {
+                                                        "range": 0,
+                                                        "status": "RUNNING"
+                                                      }
+                                                    }"""),
                                     new Kubernetes.Request("GET", URI.create("/api/v1"), ""),
                                     new Kubernetes.Request("GET", URI.create("/apis/batch/v1"), ""),
                                     new Kubernetes.Request(
@@ -201,12 +201,12 @@ class BenchmarkCommandTest {
                                             URI.create(
                                                     "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/my-bench/status"),
                                             """
-                                            {
-                                              "status": {
-                                                "range": 1,
-                                                "status": "RUNNING"
-                                              }
-                                            }"""),
+                                                    {
+                                                      "status": {
+                                                        "range": 1,
+                                                        "status": "RUNNING"
+                                                      }
+                                                    }"""),
                                     new Kubernetes.Request(
                                             "POST",
                                             URI.create(
@@ -392,12 +392,12 @@ class BenchmarkCommandTest {
                                             URI.create(
                                                     "/apis/gatling.yupiik.io/v1/namespaces/default/gatlingbenchmarks/my-bench"),
                                             """
-                                            {
-                                              "kind": "DeleteOptions",
-                                              "apiVersion": "v1",
-                                              "propagationPolicy": "Foreground",
-                                              "gracePeriodSeconds": 0
-                                            }""")),
+                                                    {
+                                                      "kind": "DeleteOptions",
+                                                      "apiVersion": "v1",
+                                                      "propagationPolicy": "Foreground",
+                                                      "gracePeriodSeconds": 0
+                                                    }""")),
                             new HashSet<>(kubernetes.requests(12)));
                 });
     }
