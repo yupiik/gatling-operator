@@ -78,8 +78,9 @@ public class BenchmarkCommand implements Runnable {
         }
     }
 
-    private CompletionStage<?> doExecutePipeline(
+    private CompletionStage<Void> doExecutePipeline(
             final long globalTimeout,
+            final boolean failed,
             final int previousRange,
             final Iterator<Map.Entry<Integer, List<GatlingBenchmarkSpec.Alveolus>>> iterator) {
         if (!iterator.hasNext()) {
@@ -109,61 +110,76 @@ public class BenchmarkCommand implements Runnable {
         return setStatus(new GatlingBenchmarkStatus(RUNNING, null, rangeNumber))
                 .thenComposeAsync(
                         i -> allOf(range.getValue().stream()
+                                .filter(it -> !failed
+                                        || it.executeCondition() == GatlingBenchmarkSpec.ExecuteCondition.ALWAYS)
                                 .map(it -> {
                                     final var indexValue = Integer.toString(index.getAndIncrement());
-                                    return bundleBee
-                                            .deploy(
-                                                    it.name(),
-                                                    it.timeout(),
-                                                    merge(
-                                                            baseImplicitPlaceholders,
-                                                            Map.of(
-                                                                    "gatling-operator.implicit.index",
-                                                                    indexValue,
-                                                                    // defaults, can be overriden by custom placeholders
-                                                                    "generic-job.name",
-                                                                    name + "-" + rangeNumber + "-" + indexValue,
-                                                                    "generic-job.activeDeadlineSeconds",
-                                                                    Long.toString(
-                                                                            Math.max(
-                                                                                            60_000,
-                                                                                            Math.max(
-                                                                                                    it.timeout(),
-                                                                                                    globalTimeout))
-                                                                                    / 1_000),
-                                                                    // do not give perms to the job until it is explicit
-                                                                    // -
-                                                                    // it.placeholdlers()
-                                                                    "generic-job.serviceAccountName",
-                                                                    "default"),
-                                                            it.placeholders()),
-                                                    desc -> {
-                                                        if (it.deleteRange() == null || it.deleteRange() <= 0) {
-                                                            return;
-                                                        }
-                                                        final var kind = desc.getString("kind");
-                                                        final var metadata = desc.getJsonObject("metadata");
-                                                        final var name = metadata.getString("name");
-                                                        final var namespace =
-                                                                metadata.getString("namespace", "default");
-                                                        final var job = kind.equalsIgnoreCase("job");
-                                                        if (job || kind.equalsIgnoreCase("service")) {
-                                                            deleteUrisPerRange
-                                                                    .computeIfAbsent(
-                                                                            it.deleteRange(),
-                                                                            ignored -> new CopyOnWriteArrayList<>())
-                                                                    .add(URI.create((job ? "/apis/batch/v1" : "/api/v1")
-                                                                            + "/namespaces/"
-                                                                            + namespace + "/"
-                                                                            + kind.toLowerCase(Locale.ROOT) + "s/"
-                                                                            + name));
-                                                        }
-                                                    })
+                                    return doDeploy(
+                                                    globalTimeout,
+                                                    it,
+                                                    baseImplicitPlaceholders,
+                                                    indexValue,
+                                                    rangeNumber)
                                             .toCompletableFuture();
                                 })
                                 .toArray(CompletableFuture<?>[]::new)),
                         executor)
-                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, rangeNumber, iterator), executor);
+                .thenComposeAsync(done -> doExecutePipeline(globalTimeout, false, rangeNumber, iterator), executor)
+                .exceptionallyComposeAsync(
+                        e -> doExecutePipeline(globalTimeout, true, rangeNumber, iterator)
+                                .thenRun(() -> {
+                                    throw (e instanceof CompletionException ce ? ce.getCause() : e)
+                                                    instanceof RuntimeException re
+                                            ? re
+                                            : new IllegalStateException("Pipeline execution failed", e);
+                                }),
+                        executor);
+    }
+
+    private CompletionStage<?> doDeploy(
+            final long globalTimeout,
+            final GatlingBenchmarkSpec.Alveolus alveolus,
+            final Map<String, String> baseImplicitPlaceholders,
+            final String indexValue,
+            final int rangeNumber) {
+        return bundleBee.deploy(
+                alveolus.name(),
+                alveolus.timeout(),
+                merge(
+                        baseImplicitPlaceholders,
+                        Map.of(
+                                "gatling-operator.implicit.index",
+                                indexValue,
+                                // defaults, can be overriden by custom placeholders
+                                "generic-job.name",
+                                name + "-" + rangeNumber + "-" + indexValue,
+                                "generic-job.activeDeadlineSeconds",
+                                Long.toString(Math.max(60_000, Math.max(alveolus.timeout(), globalTimeout)) / 1_000),
+                                // do not give perms to the job until it is explicit
+                                // -
+                                // it.placeholdlers()
+                                "generic-job.serviceAccountName",
+                                "default"),
+                        alveolus.placeholders()),
+                desc -> {
+                    if (alveolus.deleteRange() == null || alveolus.deleteRange() <= 0) {
+                        return;
+                    }
+                    final var kind = desc.getString("kind");
+                    final var metadata = desc.getJsonObject("metadata");
+                    final var name = metadata.getString("name");
+                    final var namespace = metadata.getString("namespace", "default");
+                    final var job = kind.equalsIgnoreCase("job");
+                    if (job || kind.equalsIgnoreCase("service")) {
+                        deleteUrisPerRange
+                                .computeIfAbsent(alveolus.deleteRange(), ignored -> new CopyOnWriteArrayList<>())
+                                .add(URI.create((job ? "/apis/batch/v1" : "/api/v1")
+                                        + "/namespaces/"
+                                        + namespace + "/"
+                                        + kind.toLowerCase(Locale.ROOT) + "s/"
+                                        + name));
+                    }
+                });
     }
 
     private void deleteIfNeeded(final int rangeNumber) {
@@ -224,7 +240,7 @@ public class BenchmarkCommand implements Runnable {
                 .map(it -> it.thenRun(() -> {}).toCompletableFuture())
                 .toArray(CompletableFuture<?>[]::new));
         return resolvedAlveoli.thenComposeAsync(
-                ignored -> doExecutePipeline(configuration.spec().timeout(), 0, byRange.iterator()), executor);
+                ignored -> doExecutePipeline(configuration.spec().timeout(), false, 0, byRange.iterator()), executor);
     }
 
     private CompletableFuture<Void> doRun(final BenchmarkCommandConfiguration configuration) {

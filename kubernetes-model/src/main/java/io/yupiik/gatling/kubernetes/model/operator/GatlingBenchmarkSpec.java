@@ -54,12 +54,23 @@ public record GatlingBenchmarkSpec(
             @Property(
                             documentation =
                                     "Range the job (only works for jobs and services) can be killed. For example if you use `gatling-operator#generic-service#fire-and-forget` at range `0` and run the injectors at range `1`, it means at range `2` you can kill this pod so setting `2` will avoid it to leak if you do not use `autoClean`.",
-                            defaultValue = "0")
+                            defaultValue = "null")
                     Integer deleteRange,
+            @Property(
+                            documentation = "Should the step be executed if a previous range failed or not.",
+                            defaultValue =
+                                    "io.yupiik.gatling.kubernetes.model.operator.GatlingBenchmarkSpec.ExecuteCondition.ON_PREVIOUS_SUCCESS")
+                    ExecuteCondition executeCondition,
             @Property( // 4h
                             value = "timeout",
                             documentation =
                                     "Max duration of the deployment (or execution if the await condition awaits the end of the job). Ignored if no await condition are set but also means the job will be deployed and forgotten.",
                             defaultValue = "14_400_000L")
                     Long timeout) {}
+
+    @JsonModel
+    public enum ExecuteCondition {
+        ALWAYS,
+        ON_PREVIOUS_SUCCESS
+    }
 }

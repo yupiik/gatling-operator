@@ -14,6 +14,7 @@ import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Function.identity;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 import static java.util.stream.Collectors.toMap;
@@ -377,21 +378,28 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
                                 : spec.pipeline().stream().flatMap(it -> {
                                     final var idx = index.getAndIncrement();
                                     final var prefix = "--spec-pipeline-" + idx + "-";
-                                    return Stream.concat(
-                                            Stream.of(
-                                                    prefix + "name",
-                                                    it.name(),
-                                                    prefix + "range",
-                                                    Integer.toString(it.range()),
-                                                    prefix + "placeholders",
-                                                    it.placeholders() == null
-                                                            ? ""
-                                                            : toPlaceholdersCliValue(it.placeholders())),
-                                            it.deleteRange() == null
-                                                    ? Stream.<String>empty()
-                                                    : Stream.of(
-                                                            prefix + "deleteRange",
-                                                            Integer.toString(it.deleteRange())));
+                                    return Stream.of(
+                                                    Stream.of(
+                                                            prefix + "name",
+                                                            it.name(),
+                                                            prefix + "range",
+                                                            Integer.toString(it.range()),
+                                                            prefix + "placeholders",
+                                                            it.placeholders() == null
+                                                                    ? ""
+                                                                    : toPlaceholdersCliValue(it.placeholders())),
+                                                    it.deleteRange() == null
+                                                            ? Stream.<String>empty()
+                                                            : Stream.of(
+                                                                    prefix + "deleteRange",
+                                                                    Integer.toString(it.deleteRange())),
+                                                    it.deleteRange() == null
+                                                            ? Stream.<String>empty()
+                                                            : Stream.of(
+                                                                    prefix + "executeCondition",
+                                                                    it.executeCondition()
+                                                                            .name()))
+                                            .flatMap(identity());
                                 }))
                 .flatMap(it -> it);
     }
