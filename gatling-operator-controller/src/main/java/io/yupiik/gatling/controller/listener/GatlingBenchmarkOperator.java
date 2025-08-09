@@ -182,11 +182,7 @@ public class GatlingBenchmarkOperator extends Operator.Base<GatlingBenchmark> {
 
     @Override
     public void onModify(final GatlingBenchmark resource) {
-        try {
-            logger.finest("Modification of a benchmark is not supported since it is assumed already scheduled");
-        } catch (final RuntimeException re) {
-            logger.log(SEVERE, re, () -> "Can't handle resource mutation: " + resource);
-        }
+        logger.finest("Modification of a benchmark is not supported since it is assumed already scheduled");
     }
 
     @Override
