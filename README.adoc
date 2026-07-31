@@ -1,0 +1,11 @@
+= Gatling Kubernetes Operator
+
+image:https://img.shields.io/github/license/yupiik/gatling-operator.svg[License]
+
+A Kubernetes operator to run https://gatling.io/[Gatling] load tests as native Kubernetes resources.
+
+NOTE: This project is at an early stage - no code has been published yet. Watch the repository or check https://github.com/yupiik/gatling-operator/issues[the issues] to follow the progress.
+
+== License
+
+Released under the Apache License, Version 2.0. See the LICENSE file for more details.
