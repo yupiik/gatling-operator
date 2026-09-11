@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.yupiik.gatling</groupId>
+    <artifactId>gatling-operator</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>bundlebee-alveolus-generic-job</artifactId>
+  <name>Gatling Operator :: Generic Job Alveolus</name>
+  <description>A generic Kubernetes Job alveolus.</description>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.yupiik</groupId>
+        <artifactId>bundlebee-maven-plugin</artifactId>
+        <version>${yupiik-bundlebee.version}</version>
+        <configuration>
+          <kubeconfig>explicit</kubeconfig>
+          <alveolus>gatling-operator#generic-job#awaited</alveolus>
+          <kubeNamespace>@unexistingNamespace</kubeNamespace>
+          <manifest>${project.basedir}/src/main/resources/bundlebee/manifest.json</manifest>
+          <mavenRepositoriesDownloadsEnabled>true</mavenRepositoriesDownloadsEnabled>
+          <customPlaceholders>
+            <bundlebee-placeholder-import-env>${project.basedir}/src/main/bundlebee/defaults.properties</bundlebee-placeholder-import-env>
+          </customPlaceholders>
+        </configuration>
+        <executions>
+          <execution>
+            <id>generate-placeholder-doc</id>
+            <goals>
+              <goal>placeholder-extract</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <dumpLocation>${project.parent.basedir}/documentation/src/main/minisite/content/_partials/generated/deployment/orchestrator</dumpLocation>
+              <descriptions>${project.basedir}/src/main/bundlebee/descriptions.properties</descriptions>
+            </configuration>
+          </execution>
+          <execution>
+            <id>descriptor-linting</id>
+            <goals>
+              <goal>lint</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <failLevel>WARNING</failLevel>
+              <ignoredRules>
+                <!-- we want shared cpu -->
+                <ignoredRule>cpu-limits</ignoredRule>
+                <!-- just our default -->
+                <ignoredRule>no-latest</ignoredRule>
+              </ignoredRules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,53 @@
+= Getting Started
+:minisite-index: 100
+:minisite-index-title: Getting Started
+:minisite-index-description: Entry point.
+:minisite-index-icon: play
+:minisite-nav-prev-label: Home
+:minisite-nav-prev-link: index.html
+:minisite-nav-next-label: Configuration
+:minisite-nav-next-link: configuration.html
+
+[abstract]
+Gatling Operator aims to simplify running benchmarks with Gatling in a Kubernetes cluster.
+
+== Goal
+
+The idea is to be able to run link:https://gatling.io[Gatling] benchmarks in a link:https://kubernetes.io[Kubernetes] cluster easily and handle multiple `Pod` scalability and report aggregation.
+
+NOTE: if you have a link:https://gatling.io/products[subscription], the Gatling supports it but using the Open Source and community version you need some glue this operator brings.
+
+== Design
+
+The xref:usage.adoc[CRD] provides a way to describe the benchmark to run (_your code_) and how to scale the injection (assuming your tested environment is already up and running).
+
+The scalability must be a multiple of the number of pod. All pods will get an index (starting at `0` so if you have 5 injection/gatling pods, last one will be the one with index `4`).
+Concretely, the operator will start the N pods with your scenario, then trigger the run at the same time (almost) and let them run.
+
+Once the benchmark starts, the `simulation.log` of every pod will be _tailed_ (streamed) to a blob storage (compressed) from an _orchestrator_ `Pod` (think supervisor).
+
+At the end of the benchmark (all pods are done - `Failed` or `Completed` for the parent `Job`) some post process can run getting the staged files (`simulation.log` archives).
+
+It can then be rendered as a html concatenating the (decompressed) files and using `gatling.sh -ro merged.log` or anything equivalent.
+
+So high level here are the components involved in a benchmark:
+
+[opts="header",cols="m^,5a^"]
+|===
+| Component     | Responsibility
+
+| Operator
+| Initiate _orchestrator_ pod using _deployer_ mechanism (and cleans benchmark environment/resources when needed)
+
+| Deployer
+| A job which will create other pods (or jobs). We do use link:http://yupiik.io/bundlebee/[Yupiik BundleBee] for that (it is similar to Helm but it is easier to integrate because written in Java and natively supports patching descriptors without having to have anticipated a value for it).
+
+| Orchestrator
+| Create - using the _deployer_ Gatling scenario (a.k.a. _workers_) pods and make them start at the same time the scenario execution. Once they are all done it can run post-tasks as other `Job`.
+
+| Blob storage
+| Just a storage where the `simulation.log` files are sent in real time. It is used by reporters or sub-tasks to retrieve the execution report.
+
+| Reporter
+| It is just a post-task specific role, it will gather the `simulation.log` file of all pods and compute a report somehow (specific to the image used).
+|===

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://raw.githubusercontent.com/yupiik/bundlebee/gh-pages/generated/jsonschema/manifest.descriptor.json",
+  "interpolateAlveoli": true,
+  "alveoli": [
+    {
+      "// description": "Deploy and await it ends",
+      "name": "gatling-operator#generic-job#awaited",
+      "descriptors": [
+        {
+          "name": "gatling-operator/job.json",
+          "awaitConditions": [
+            {
+              "command": "apply",
+              "operator": "ANY",
+              "conditions": [
+                {
+                  "type": "JSON_POINTER",
+                  "pointer": "/status/failed",
+                  "operatorType": "EQUALS",
+                  "value": "1",
+                  "failMessage": "Job failed"
+                },
+                {
+                  "type": "JSON_POINTER",
+                  "pointer": "/status/succeeded",
+                  "operatorType": "EQUALS",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gatling-operator#generic-job#fire-and-forget",
+      "descriptors": [
+        {
+          "// description": "Deploy and await it runs a pod",
+          "name": "gatling-operator/job.json",
+          "// await conditions": "ready (started) or finished (if fast)",
+          "awaitConditions": [
+            {
+              "command": "apply",
+              "operator": "ANY",
+              "conditions": [
+                {
+                  "type": "JSON_POINTER",
+                  "pointer": "/status/ready",
+                  "operatorType": "EQUALS",
+                  "value": "1"
+                },
+                {
+                  "type": "JSON_POINTER",
+                  "pointer": "/status/failed",
+                  "operatorType": "EQUALS",
+                  "value": "1"
+                },
+                {
+                  "type": "JSON_POINTER",
+                  "pointer": "/status/succeeded",
+                  "operatorType": "EQUALS",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gatling-operator#generic-service#fire-and-forget",
+      "dependencies": [
+        {
+          "name": "gatling-operator#generic-job#fire-and-forget"
+        }
+      ],
+      "descriptors": [
+        {
+          "name": "gatling-operator/service.json",
+          "// await conditions": "no await condition because we are in clusterIP:none, else we would need to check endpoints",
+          "awaitConditions": []
+        }
+      ]
+    }
+  ]
+}

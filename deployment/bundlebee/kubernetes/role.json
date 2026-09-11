@@ -1,0 +1,67 @@
+{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "Role",
+  "metadata": {
+    "name": "gatling-operator",
+    "labels": {
+      "app": "gatling-operator"
+    }
+  },
+  "rules": [
+    {
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "services"
+      ],
+      "verbs": [
+        "list",
+        "get",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "batch"
+      ],
+      "resources": [
+        "jobs"
+      ],
+      "verbs": [
+        "create",
+        "list",
+        "get",
+        "watch",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks"
+      ],
+      "verbs": [
+        "list",
+        "get",
+        "watch",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks/status"
+      ],
+      "verbs": [
+        "get",
+        "create",
+        "patch"
+      ]
+    }
+  ]
+}

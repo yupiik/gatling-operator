@@ -1,0 +1,492 @@
+= Usage
+:minisite-index: 400
+:minisite-index-title: Usage
+:minisite-index-description: How to use the operator.
+:minisite-index-icon: user
+:minisite-nav-prev-label: Deployment
+:minisite-nav-prev-link: deployment.html
+
+The idea behind `gatlingbenchmarks.gatling.yupiik.io` CRD is to define a pipeline of self contained `Job` defined as Yupiik BundleBee alveolus.
+
+IMPORTANT: as of today it is important is is self contained since the cleanup only handles `Job` and `Service`.
+Technically we can use Yupiik BundleBee to know what to delete but the issue is that the operator will likely miss some `Role` (permissions) so we limit ourselves to jobs for now.
+If you deploy anything else, it will be deployed but not un-deployed so you can need to have some garbage collection mechanism.
+
+== Sample
+
+Here is a sample CRD defining a pipeline spawning a tomcat and launching a gatling scenario:
+
+[source,yaml]
+----
+apiVersion: gatling.yupiik.io/v1
+kind: GatlingBenchmark
+metadata:
+  name: my-bench
+  namespace: my-benchmark-namespace
+spec:
+  # ensure the CRD/bench is dropped after the pipeline execution (disable to debug)
+  autoClean: true
+  timeout: 3600000  # 1h
+  pipeline:
+    # start a server
+    - name: gatling-operator#generic-job#fire-and-forget
+      # first step
+      range: 0
+      timeout: 300000  # 5 minutes
+      placeholders:
+        users: "100"
+        duration: "60"
+        scenario: "basic-simulation"
+    # run 2 injectors (keep in mind they can use their index to know how they will behave or adjust the injection profile)
+    - name: gatling-operator#generic-job#awaited
+      range: 1
+      timeout: 3000000 # 50 minutes
+      placeholders:
+        generic-job.command: "[\"java\", ....]"
+        generic-job.image: "my-gatling-image"
+    - name: gatling-operator#generic-job#awaited
+      range: 1
+      timeout: 3000000 # 50 minutes
+      placeholders:
+        generic-job.command: "[\"java\", ....]"
+        generic-job.image: "my-gatling-image"
+----
+
+TIP: in general we prefer JSON for descriptors but YAML works well and is more common so we used it for the sample.
+
+TIP: this goes beyond the scope of a sample but customizing the affinity (using anti affinity actually) you can ensure the injectors, servers and potentially other `Pod` are on different nodes which makes a better distribution of the resource usage.
+
+== Wait, no Gatling?
+
+Actually you configure the injector to use gatling  image, it can be: `gerritforge/gatling:3.9.0` for example.
+
+Until you use a custom cleanup command, you have to inject everything in the image using the job definition.
+One way to do that is to use a custom entrypoint and inject the scripts either directly or using environment variables (more readable and reusable):
+
+[source,yaml]
+----
+- name: gatling-operator#generic-job#awaited
+  range: 1
+  timeout: 3000000 # 50 minutes
+  placeholders:
+    generic-job.image: gerritforge/gatling:3.9.0
+    # not recommended but convenient for demo purposes
+    generic-job.containerSecurityContext: '{}'
+    generic-job.podSecurityContext: '{}'
+    # tune the entrypoint (more in next part) and environment
+    generic-job.command: >
+      [
+        "sh", "-c",
+        "
+          echo '...simulation in base64...' |
+            base64 -d > /tmp/simulation.jar &&
+            unzip -d /opt/gatling/user-files/simulations /tmp/simulation.jar &&
+            rm /tmp/simulation.jar &&
+          java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample --reports-folder /tmp/reports --no-reports
+        "
+      ]
+    generic-job.env: |
+      [
+        { "name": "JAVA_OPTS", "value": "..." }
+      ]
+----
+
+TIP: using `>` hack you can write the injected JSON as a multiline string which is generally more convenient when done manually.
+
+== Scheduling? (time)
+
+There is no `CronBenchmark` but you can use the CLI directly combined with a `CronJob` to achieve the same result.
+
+== Writing your first simulation (scenario)
+
+IMPORTANT: if you prefer to build a custom image just skip this part and read next one.
+
+If you do use maven you can use this kind of `pom.xml`:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.yupiik.gatling</groupId>
+  <artifactId>gatling-sample</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+
+  <properties>
+    <!-- until you do your own image (preferred) -->
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
+
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <gatling.version>3.14.3</gatling.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.gatling.highcharts</groupId>
+      <artifactId>gatling-charts-highcharts</artifactId>
+      <version>${gatling.version}</version>
+    </dependency>
+  </dependencies>
+</project>
+----
+
+Then write some simulation (scenario):
+
+[source,java]
+----
+package io.yupiik.gatling;
+
+import io.gatling.javaapi.core.ScenarioBuilder;
+import io.gatling.javaapi.core.Simulation;
+import io.gatling.javaapi.http.HttpProtocolBuilder;
+
+import static io.gatling.javaapi.core.CoreDsl.StringBody;
+import static io.gatling.javaapi.core.CoreDsl.constantUsersPerSec;
+import static io.gatling.javaapi.core.CoreDsl.rampUsers;
+import static io.gatling.javaapi.core.CoreDsl.scenario;
+import static io.gatling.javaapi.http.HttpDsl.http;
+import static io.gatling.javaapi.http.HttpDsl.status;
+
+public class Sample extends Simulation {
+    private final HttpProtocolBuilder httpProtocol =
+            http.baseUrl("https://quickpizza.grafana.com")
+                    .inferHtmlResources()
+                    .contentTypeHeader("application/json")
+                    .acceptHeader("*/*")
+                    .acceptLanguageHeader("en-US,en;q=0.9,fr;q=0.8")
+                    .userAgentHeader("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+    private final String requestBody = "{\n" + // use text blocks if you use a more recent java
+            "              \"maxCaloriesPerSlice\": 1000,\n" +
+            "              \"mustBeVegetarian\": false,\n" +
+            "              \"excludedIngredients\": [],\n" +
+            "              \"excludedTools\": [],\n" +
+            "              \"maxNumberOfToppings\": 5,\n" +
+            "              \"minNumberOfToppings\": 2,\n" +
+            "              \"customName\": \"\"\n" +
+            "            }";
+
+    private final ScenarioBuilder scn = scenario("Pizza Order")
+            .exec(
+                    http("Order Pizza")
+                            .post("/api/pizza")
+                            .body(StringBody(requestBody))
+                            .check(status().is(200))
+            );
+
+    {
+        setUp(
+                scn.injectOpen(
+                        rampUsers(2).during(10),
+                        constantUsersPerSec(10).during(5),
+                        rampUsers(0).during(5)
+                )
+        ).protocols(httpProtocol);
+    }
+}
+----
+
+Here we do not need dependencies so we just have to build (`mvn package`) and inject the jar in simulation folder.
+
+To inject the jar we can encode it in `base64`: `cat target/gatling-sample-1.0.0-SNAPSHOT.jar | base64 -w0`.
+
+[source,properties]
+----
+generic-job.command: >
+  [
+    "sh", "-c",
+    "
+      echo '...simulation in base64...' |
+        base64 -d > /tmp/gatling-sample.jar &&
+        unzip -d /opt/gatling/user-files/simulations /tmp/gatling-sample.jar &&
+        rm /tmp/gatling-sample.jar &&
+      java -cp "/opt/gatling/user-files/simulations$(printf ":%s" /opt/gatling/lib/*.jar)" io.gatling.app.Gatling --simulation io.yupiik.gatling.Sample  --no-reports
+    "
+  ]
+----
+
+Without entering into details it does two things:
+
+. Inject the exploded jar into `/opt/gatling/user-files/simulations` (you can replace it by `COPY target/classes/ /opt/gatling/user-files/simulations/` in a `Dockerfile`),
+. Run `Gatling` main directly with the desired simulation enabled (take care the image uses Java 8 so your code should be at most Java 8 if you do not embed Gatling a a library in your own image).
+
+NOTE: there we do not tune the default `gatling.conf` but if you need it you can use the same kind of command.
+
+NOTE: this method works well for small (but common) projects and avoid to create yet another image with a repository to maintain/setup.
+However, for biggest one think to create an image from `gerritforge/gatling:3.9.0` or another one and add your configuration and simulations using `jib-maven-plugin` or `docker`/`podman` directly.
+
+== Build a custom Gatling image
+
+To build a custom Gatling image, we'll use this pom which relies on link:https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin[jib] to create the image:
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.yupiik.gatling</groupId>
+  <artifactId>gatling-sample</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+
+  <properties>
+    <!-- until you do your own image (preferred) -->
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
+
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <gatling.version>3.14.3</gatling.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.gatling.highcharts</groupId>
+      <artifactId>gatling-charts-highcharts</artifactId>
+      <version>${gatling.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>3.4.6</version>
+        <configuration>
+          <containerizingMode>packaged</containerizingMode>
+          <from>
+            <image>ossyupiik/java:21.0.7</image>
+          </from>
+          <to>
+            <image>sample-gatling</image>
+          </to>
+          <container>
+            <appRoot>/opt/benchmark</appRoot>
+            <workingDirectory>/opt/benchmark</workingDirectory>
+            <mainClass>io.gatling.app.Gatling</mainClass>
+            <jvmFlags>
+              <jvmFlag>-Djava.security.egd=file:/dev/./urandom</jvmFlag>
+              <jvmFlag>-Djdk.serialFilter=!*</jvmFlag>
+              <jvmFlag>-Djdk.jndi.object.factoriesFilter=!*</jvmFlag>
+              <jvmFlag>-Dcom.sun.jndi.ldap.object.trustSerialData=false</jvmFlag>
+              <!-- base image is an alpine, netty@gatling doesn't like musl instead of gcc -->
+              <jvmFlag>-Dgatling.ssl.useOpenSsl=false</jvmFlag>
+              <!-- not needed there -->
+              <jvmFlag>-Dgatling.data.enableAnalytics=false</jvmFlag>
+              <!-- we force a more recent JDK so we have some JPMS side effect we fix this way -->
+              <jvmFlag>--add-opens</jvmFlag>
+              <jvmFlag>java.base/java.lang=ALL-UNNAMED</jvmFlag>
+            </jvmFlags>ge
+            <environment>
+              <LANG>en_US.UTF-8</LANG>
+            </environment>
+          </container>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+----
+
+Assuming you created the simulation of previous part (as a sample) you can create your image locally with: ` mvn clean package jib:dockerBuild`.
+This works with `minikube` if you do `eval $(minikube docker-env)` before in your shell and ensure the image pull policy is `IfNotPresent` (in placeholders).
+
+TIP: refer to the link:https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin[jib] documentation to push to a remote registry.
+
+NOTE: setting the `--reports-folder` will store the `simulation.log` file we can use to aggregate results in `$folder/$simulationLowercaseSimpleName-$yyyyMMddHHmmssSSS/simulation.log` location.
+This one can be big depending your scenario so ensure to give enough space to the volume where you do store it (or drop the security contexts to enable to write in container filesystem even if not neat).
+The `--no-reports` avoids to generate the HTML report in this container.
+
+This packaging works for multiple simulations (in the same image/project) and you just need to pass `--simulation $yourclass` and a report folder (` --results-folder /gatling/report` for example) as argument to the container:
+[source,properties]
+----
+generic-job.image: sample-gatling:latest
+# for minikube, for a registry based deployment use "Always" to match "latest" tag convention
+generic-job.imagePullPolicy: IfNotPresent
+# not recommended but convenient for demo purposes
+generic-job.containerSecurityContext: '{}'
+generic-job.podSecurityContext: '{}'
+generic-job.args: >
+  [
+    "--simulation", "io.yupiik.gatling.Sample",
+    "--results-folder", "/gatling/reports",
+    " --no-reports"
+  ]
+----
+
+NOTE: in practise you should use `generic-job.volumes` and `generic-job.volumeMounts` to use an ephemeral volume or an `emptyDir` (depending your cluster) and bind it on `/gatling/reports`.
+Gatling can also need a few other folder as writables so as empty directories/volumes.
+
+== Report
+
+As we just saw the CRD enables you to define a pipeline.
+To get report when you have multiple injectors (or a single one but when you have a single one you can just generate the report locally), you need to send all reports to a single instance and aggregate it.
+You can see the pipeline as a very simple "map/reduce": the `bench` command does the "map" and a reporter pod will do the reduce.
+
+Here are some built-in commands enabling to do it:
+
+* `start-report-server`: spawn a light HTTP server other pods can use to send reports. Important: it is intended to be used with `gatling-operator#generic-service#fire-and-forget` alveolus to have a stable name to configure to other commands,
+* `gatling-report` can be injected after a gatling execution (after `java -cp ... io.gatling.app.Gatling ...`, often as ``java -cp ... io.gatling.app.Gatling ...` ; java -cp .... io.yupiik.fusion.framework.api.main.Launcher gatling-report ...`), it will send the local reports to the HTTP server previous spawn,
+* `do-generate-report`: call the HTTP server to notify it that no more report will be generated, it will block until the report is generated.
+
+NOTE: if you do setup gatling with OpenTelemetry (collector or not) and collect data this way (logs, metrics etc), you do not need this part at all.
+
+
+== Complete gatling pipeline
+
+[source,yaml,subs=+attributes]
+----
+apiVersion: gatling.yupiik.io/v1
+kind: GatlingBenchmark
+metadata:
+  name: mg-oauth2
+  namespace: default
+spec:
+  autoClean: false
+  # 15mn
+  timeout: 900000
+  pipeline:
+    # start the server to bench
+    - name: gatling-operator#generic-service#fire-and-forget <1>
+      range: 0
+      # since it is fire and forget, ensure it can be deleted as soon as possible
+      # (normally autoClean should be sufficient but more robust if pipeline is reworked)
+      deleteRange: 2
+      # the whole test duration since it is the server we do test
+      timeout: 900000
+      placeholders:
+        generic-job.activeDeadlineSeconds: "900"
+        generic-job.image: my/server:1.2.3
+        generic-job.imagePullPolicy: IfNotPresent
+        generic-job.env: >-
+          [
+            { "name": "SERVER_CONF1", "value": "value1" },
+            { "name": "SERVER_CONF2", "value": "value2" }
+          ]
+    # start result collector, in real cases reports volume is a PVC where reports are stored
+    - name: gatling-operator#generic-service#fire-and-forget <2>
+      range: 0
+      timeout: 900000
+      placeholders:
+        generic-job.activeDeadlineSeconds: "900"
+        generic-job.image: yupiik/gatling-cli:{project_version}
+        generic-job.imagePullPolicy: IfNotPresent
+        # 1Gi max of (uploaded) reports and 100Mi for the aggregated rendered report
+        generic-job.volumes: >-
+          [
+            {
+              "name": "work",
+              "emptyDir": { "sizeLimit": "1Gi" }
+            },
+            {
+              "name": "reports",
+              "emptyDir": { "sizeLimit": "100Mi" }
+            }
+          ]
+        generic-job.volumeMounts: >-
+          [
+            {
+              "name": "work",
+              "mountPath": "/work"
+            },
+            {
+              "name": "reports",
+              "mountPath": "/reports"
+            }
+          ]
+        generic-job.args: >-
+          [
+            "start-report-server",
+            "--working-directory", "/work",
+            "--report-directory", "/reports",
+            "--address", "0.0.0.0",
+            "--port", "8080"
+          ]
+    # simulate a benchmark with a custom image (here we just do a curl)
+    - name: gatling-operator#generic-job#awaited <3>
+      range: 1
+      timeout: 20000
+      placeholders:
+        # define cli command since we embed the CLI in the injector image by copying binaries
+        cli: >-
+          java
+          -Djava.util.logging.manager=io.yupiik.logging.jul.YupiikLogManager
+          -Dfusion.launcher.useHook=true
+          --add-opens java.base/java.lang=ALL-UNNAMED
+          -Dgatling.ssl.useOpenSsl=false
+          -Dgatling.data.enableAnalytics=false
+          -cp @/opt/yupiik/gatling-operator/gatling-cli/jib-classpath-file
+          io.yupiik.fusion.framework.api.main.Launcher
+        generic-job.activeDeadlineSeconds: "20"
+        generic-job.image: my/injector:1.2.3
+        # for kubernetes >= 1.33 you can use ImageVolume feature gate if enabled
+        # instead of init containers to do a plain copy in a ephemeral volume or emptyDir
+        generic-job.volumes: >-
+          [
+            {
+              "name": "cli",
+              "emptyDir": { "sizeLimit": "512Mi" }
+            }
+          ]
+        generic-job.volumeMounts: >-
+          [
+            {
+              "name": "cli",
+              "mountPath": "/opt/yupiik/gatling-operator/gatling-cli"
+            }
+          ]
+        generic-job.initContainers: >-
+          [
+            {
+              "name": "copy-cli",
+              "image": "yupiik/gatling-cli:{project_version}",
+              "imagePullPolicy": "IfNotPresent",
+              "volumeMounts": [ { "name": "cli", "mountPath": "/copy" } ],
+              "command": [ "sh", "-c", "cp -r /opt/yupiik/gatling-operator/gatling-cli/* /copy/" ]
+            }
+          ]
+        generic-job.command: >-
+          [
+            "sh",
+            "-c"
+          ]
+        generic-job.args: >-
+          [
+            "/opt/my/injector ; {{cli}} gatling-report"
+          ]
+        # inject the server URL using the env
+        generic-job.env: >-
+          [
+            { "name": "SERVER", "value": "http://\{{gatling-operator.implicit.parent-name}}-0-0:8080" }
+          ]
+    # notify result collector test is done to have the report generated
+    - name: gatling-operator#generic-job#awaited <4>
+      range: 2
+      timeout: 60000
+      executeCondition: ALWAYS
+      placeholders:
+        generic-job.activeDeadlineSeconds: "60"
+        generic-job.image: yupiik/gatling-cli:{project_version}
+        generic-job.imagePullPolicy: IfNotPresent
+        generic-job.args: >-
+          [
+            "do-generate-report",
+            "--reporter-endpoint",
+            "http://\{{gatling-operator.implicit.parent-name}}-0-1:8080/api/end"
+          ]
+----
+<.> Start the server to benchmark,
+<.> Start the report collector - the custom injector image must call to send its local report, it can be done using the CLI and `gatling-report` command (either as side container or post command copying the needed jars),
+<.> Run the benchmark (potentially N instances on N nodes thanks _anti-affinity_) once previous servers are up and running,
+<.> Once injectors are done trigger the reporting.
+
+TIP: use `nodeSelector` and `affinity` to ensure the injectors, collector and server are not on the same node to ensure the benchmark is representative.
+
+TIP: if you are not sure your injector image is on running node and you do use N injectors, it can be neat to have a range before the actual bench running your image with a _no-op_ command to ensure it is there and therefore the pull time is close to zero.

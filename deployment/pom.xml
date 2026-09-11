@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.yupiik.gatling</groupId>
+    <artifactId>gatling-operator</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>deployment</artifactId>
+  <name>Gatling Operator :: Deployment</name>
+
+  <properties>
+    <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
+
+    <bundlebee.alveolus>gatling-operator</bundlebee.alveolus>
+    <deployment.environment>${project.basedir}/environments/default.properties</deployment.environment>
+  </properties>
+
+  <build>
+    <resources>
+      <resource>
+        <targetPath>bundlebee</targetPath>
+        <filtering>false</filtering>
+        <directory>bundlebee</directory>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>io.yupiik</groupId>
+        <artifactId>bundlebee-maven-plugin</artifactId>
+        <version>${yupiik-bundlebee.version}</version>
+        <configuration>
+          <alveolus>${bundlebee.alveolus}</alveolus>
+          <kubeNamespace>@unexistingNamespace</kubeNamespace>
+          <manifest>${project.basedir}/bundlebee/manifest.json</manifest>
+          <mavenRepositoriesDownloadsEnabled>true</mavenRepositoriesDownloadsEnabled>
+          <customPlaceholders>
+            <basedir>${project.basedir}</basedir>
+            <bundlebee-placeholder-import-env>${deployment.environment}</bundlebee-placeholder-import-env>
+          </customPlaceholders>
+        </configuration>
+        <executions>
+          <execution>
+            <id>generate-placeholder-doc</id>
+            <goals>
+              <goal>placeholder-extract</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <kubeconfig>explicit</kubeconfig>
+              <dumpLocation>${project.parent.basedir}/documentation/src/main/minisite/content/_partials/generated/deployment</dumpLocation>
+              <descriptions>${project.basedir}/documentation/descriptions.properties</descriptions>
+            </configuration>
+          </execution>
+          <execution>
+            <id>descriptor-linting</id>
+            <goals>
+              <goal>lint</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <failLevel>WARNING</failLevel>
+              <kubeconfig>explicit</kubeconfig>
+              <ignoredRules>
+                <!-- we want shared cpu -->
+                <ignoredRule>cpu-limits</ignoredRule>
+                <!-- just our default -->
+                <ignoredRule>no-latest</ignoredRule>
+                <!-- single instance is sufficient for the operator -->
+                <ignoredRule>minimum-three-replicas</ignoredRule>
+                <!-- this is the goal actually -->
+                <ignoredRule>access-to-create-pods</ignoredRule>
+              </ignoredRules>
+            </configuration>
+          </execution>
+          <execution>
+            <id>minikube</id>
+            <goals>
+              <goal>apply</goal>
+            </goals>
+            <phase>none</phase>
+            <configuration>
+              <kubeNamespace>default</kubeNamespace>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

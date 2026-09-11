@@ -1,0 +1,61 @@
+{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "Role",
+  "metadata": {
+    "name": "gatling-orchestrator",
+    "labels": {
+      "app": "gatling-orchestrator"
+    }
+  },
+  "rules": [
+    {
+      "apiGroups": [
+        ""
+      ],
+      "resources": [
+        "services"
+      ],
+      "verbs": [
+        "create",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "batch"
+      ],
+      "resources": [
+        "jobs"
+      ],
+      "verbs": [
+        "create",
+        "delete",
+        "get"
+      ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks"
+      ],
+      "verbs": [
+        "get",
+        "delete"
+      ]
+    },
+    {
+      "apiGroups": [
+        "gatling.yupiik.io"
+      ],
+      "resources": [
+        "gatlingbenchmarks/status"
+      ],
+      "verbs": [
+        "get",
+        "patch"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+= Configuration
+:minisite-index: 500
+:minisite-index-title: Advanced
+:minisite-index-description: More details about internals.
+:minisite-index-icon: puzzle-piece
+:minisite-nav-prev-label: Getting Started
+:minisite-nav-prev-link: getting-started.html
+
+[abstract]
+This page explains some details of the internals of the operator.
+
+== Orchestrator alveolus
+
+When the operator triggers the orchestrator (the `Pod` managing the pipeline of a benchmark execution), it actually triggers a Yupiik link:yupiik.io/bundlebee/[BundleBee] alveolus (kind of Helm Chart).
+
+There are two alveoli to deploy a `Job`: `gatling-operator#generic-job#awaited` and `gatling-operator#generic-job#fire-and-forget`.
+The first one starts and awaits for the job to complete while the second one starts it, awaits it is _ready_ then continues.
+
+Here are the placeholders (values) which are configured by the operator.
+
+=== Configuration
+
+include::{partialsdir}/generated/deployment/orchestrator/placeholders.adoc[]
+
+=== Completion
+
+You can get completion using vscode link:https://marketplace.visualstudio.com/items?itemName=rmannibucau.properties-completion[properties] extension and this file:
+
+[source,properties]
+----
+include::{partialsdir}/generated/deployment/orchestrator/placeholders.completion.properties[]
+----
+
+=== Sample placeholders
+
+Here is a sample `placeholders.properties` you can use with the `gatling-operator` alveolus:
+
+[source,properties]
+----
+include::{partialsdir}/generated/deployment/orchestrator/placeholders.properties[]
+----
+
+=== CLI
+
+Orchestrator cli documentation is available at xref:cli/index.adoc[CLI] page.
